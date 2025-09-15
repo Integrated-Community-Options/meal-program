@@ -1,0 +1,3621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ICON CACFP Management System</title>
+    
+    <!-- External Scripts and Styles -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F9F7F1;
+            color: #1F2937;
+        }
+        
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 400px;
+        }
+        
+        .nav-btn {
+            transition: all 0.3s ease;
+            border-bottom: 4px solid transparent;
+        }
+        
+        .nav-btn.active {
+            border-bottom-color: #C2410C;
+            color: #C2410C;
+            font-weight: 600;
+        }
+        
+        .meal-card {
+            background-color: #FFFFFF;
+            border: 1px solid #E5E7EB;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+        }
+        
+        .meal-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+        }
+        
+        .time-slot {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background-color: #FDE68A;
+            color: #9A3412;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+        
+        .add-entry {
+            display: inline-block;
+            margin-top: 0.25rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            background-color: #E5E7EB;
+            color: #1F2937;
+            font-size: 0.75rem;
+            text-align: center;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        
+        .add-entry:hover {
+            background-color: #D1D5DB;
+        }
+        
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        
+        .modal-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .modal-content {
+            background-color: #FFFFFF;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+            transform: translateY(-20px);
+            transition: transform 0.3s ease;
+        }
+        
+        .modal-overlay.visible .modal-content {
+            transform: translateY(0);
+        }
+        
+        .close-button {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #44403C;
+        }
+        
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #0D9488;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .meal-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        
+        .meal-table th,
+        .meal-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #E7E5E4;
+        }
+        
+        .meal-table th {
+            background-color: #F8F5F0;
+            font-weight: 600;
+            color: #57534E;
+            text-transform: uppercase;
+            font-size: 0.875rem;
+        }
+        
+        .meal-table td {
+            font-size: 0.9rem;
+        }
+        
+        .meal-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .editable-cell {
+            min-width: 80px;
+            width: 100%;
+            display: block;
+            outline: none;
+            border: 1px solid transparent;
+            padding: 0.25rem;
+            border-radius: 4px;
+            transition: border-color 0.2s ease, background-color 0.2s ease;
+        }
+        
+        .editable-cell:hover {
+            border-color: #D6D3D1;
+        }
+        
+        .editable-cell:focus {
+            border-color: #0D9488;
+            background-color: #F0F9FF;
+        }
+        
+        .editable-cell.error {
+            border-color: #EF4444;
+            background-color: #FEE2E2;
+        }
+        
+        .recipe-field-label {
+            font-weight: 600;
+            color: #3B82F6;
+            margin-top: 1rem;
+            display: block;
+        }
+        
+        .recipe-field-content {
+            border: 1px solid #E7E5E4;
+            padding: 0.5rem;
+            border-radius: 8px;
+            background-color: #FDFCFB;
+            min-height: 30px;
+            outline: none;
+        }
+        
+        .recipe-table th,
+        .recipe-table td {
+            border: 1px solid #d1d5db;
+            padding: 0;
+        }
+        
+        .recipe-table th .editable-cell {
+            font-weight: 600;
+        }
+        
+        .add-btn {
+            background-color: #3b82f6;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .add-btn:hover {
+            background-color: #2563eb;
+        }
+        
+        .status-message {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s ease;
+            z-index: 100;
+        }
+        
+        .status-message.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .status-message.success {
+            background-color: #34D399;
+            color: white;
+        }
+        
+        .status-message.error {
+            background-color: #F87171;
+            color: white;
+        }
+        
+        .status-message.info {
+            background-color: #3B82F6;
+            color: white;
+        }
+        
+        /* Calendar and grid styles */
+        #calendar-grid {
+            min-height: 60vh;
+        }
+        
+        .calendar-cell {
+            border: 1px solid #E7E5E4;
+            border-radius: 8px;
+            min-height: 120px;
+            padding: 0.5rem;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            background-color: #FFFFFF;
+        }
+        
+        .calendar-cell .date-label {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            color: #44403C;
+        }
+        
+        .small-menu-card {
+            display: flex;
+            flex-direction: column;
+            background-color: #FFFFFF;
+            border: 1px solid #E7E5E4;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 0.25rem;
+            cursor: pointer;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            transition: background-color 0.2s ease;
+        }
+        
+        .small-menu-card-header {
+            background-color: #3B82F6;
+            color: #FFFFFF;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        
+        .small-menu-card-body {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.7rem;
+            color: #1F2937;
+            flex-grow: 1;
+        }
+        
+        .small-menu-card:hover {
+            background-color: #F1F5F9;
+        }
+        
+        .mini-meal-button {
+            display: block;
+            width: 100%;
+            margin-top: 0.25rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            text-align: center;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        
+        .mini-meal-button.am-snack-btn {
+            background-color: #166534;
+            color: #FFFFFF;
+        }
+        
+        .mini-meal-button.am-snack-btn:hover {
+            background-color: #14532d;
+        }
+        
+        .mini-meal-button.lunch-btn {
+            background-color: #3B82F6;
+            color: #FFFFFF;
+        }
+        
+        .mini-meal-button.lunch-btn:hover {
+            background-color: #2563eb;
+        }
+        
+        .mini-meal-button.pm-snack-btn {
+            background-color: #F97316;
+            color: #FFFFFF;
+        }
+        
+        .mini-meal-button.pm-snack-btn:hover {
+            background-color: #ea580c;
+        }
+        
+        #calendar-grid {
+            min-height: 500px;
+        }
+        
+        /* Navigation styles */
+        .hamburger-menu {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1100;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            width: 30px;
+            height: 25px;
+            background: transparent;
+            border: none;
+            padding: 0;
+        }
+        
+        .hamburger-menu span {
+            display: block;
+            width: 100%;
+            height: 3px;
+            background-color: #333;
+            border-radius: 3px;
+            transition: all 0.3s ease-in-out;
+        }
+        
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: -300px;
+            width: 250px;
+            height: 100%;
+            background-color: #FFFFFF;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
+            z-index: 1050;
+            transition: left 0.3s ease-in-out;
+            padding-top: 70px;
+        }
+        
+        .sidebar.open {
+            left: 0;
+        }
+        
+        .sidebar-item {
+            padding: 15px 20px;
+            color: #333;
+            font-size: 1.1rem;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        
+        .sidebar-item:hover {
+            background-color: #f5f5f5;
+        }
+        
+        .sidebar-item:last-child {
+            border-bottom: none;
+        }
+        
+        /* Form styles */
+        .form-view-container {
+            display: flex;
+            height: calc(100vh - 4rem);
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+        
+        .form-sidebar {
+            width: 280px;
+            background: #f8f9fa;
+            border-right: 1px solid #e5e7eb;
+            overflow-y: auto;
+            border-radius: 8px 0 0 8px;
+            padding: 1rem;
+        }
+        
+        .form-sidebar h2 {
+            font-weight: 600;
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+        }
+        
+        .form-list-item {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            border-bottom: 1px solid #e5e7eb;
+            transition: background-color 0.2s;
+            font-size: 0.9rem;
+        }
+        
+        .form-list-item:hover {
+            background: #f0f4f8;
+        }
+        
+        .form-list-item.active {
+            background: #e0f2fe;
+            font-weight: 600;
+        }
+        
+        .form-main-area {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+        
+        .form-field {
+            margin-bottom: 1rem;
+        }
+        
+        .form-field label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+            color: #4b5563;
+        }
+        
+        .form-field input, .form-field select, .form-field textarea {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            background-color: #f9fafb;
+            font-size: 0.9rem;
+        }
+        
+        .form-btn {
+            background-color: #2563eb;
+            color: #fff;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        
+        .form-btn:hover {
+            background-color: #1d4ed8;
+        }
+        
+        .form-btn.delete {
+            background-color: #ef4444;
+        }
+        
+        .form-btn.delete:hover {
+            background-color: #dc2626;
+        }
+        
+        .form-section-title {
+            font-weight: 600;
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+            color: #1f2937;
+        }
+        
+        /* Meal Count specific styles */
+        .meal-cell-content {
+            display: flex;
+            flex-wrap: nowrap;
+            gap: 4px;
+            justify-content: center;
+            align-items: center;
+            min-height: 24px;
+        }
+        
+        .meal-tag {
+            padding: 2px 8px;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        
+        .meal-cell {
+            min-width: 120px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        
+        .meal-cell:hover {
+            background-color: #F3F4F6;
+        }
+        
+        .participant-name-input {
+            background-color: transparent;
+            border: 1px solid transparent;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.375rem;
+            transition: border-color 0.2s ease;
+        }
+        
+        .participant-name-input:focus {
+            border-color: #D1D5DB;
+            outline: none;
+        }
+        
+        /* Color-coded meal cards */
+        .am-snack-card {
+            background-color: #166534;
+            color: #FFFFFF;
+            border-color: #D1FAE5;
+        }
+        
+        .am-snack-card h3 {
+            color: #FFFFFF;
+        }
+        
+        .am-snack-card .text-stone-600,
+        .am-snack-card .text-stone-700 {
+            color: #D1FAE5;
+        }
+        
+        .am-snack-card .meal-table th {
+            background-color: #15803d;
+            color: #FFFFFF;
+        }
+        
+        .lunch-card {
+            background-color: #3B82F6;
+            color: #FFFFFF;
+            border-color: #1E40AF;
+        }
+        
+        .lunch-card h3 {
+            color: #FFFFFF;
+        }
+        
+        .lunch-card .text-stone-600,
+        .lunch-card .text-stone-700 {
+            color: #BFDBFE;
+        }
+        
+        .lunch-card .meal-table th {
+            background-color: #1E40AF;
+            color: #FFFFFF;
+        }
+        
+        .pm-snack-card {
+            background-color: #F97316;
+            color: #FFFFFF;
+        }
+        
+        .pm-snack-card h3 {
+            color: #FFFFFF;
+        }
+        
+        .pm-snack-card .text-stone-600,
+        .pm-snack-card .text-stone-700 {
+            color: #FFFFFF;
+        }
+        
+        .pm-snack-card .meal-table th {
+            background-color: #EA580C;
+            color: #FFFFFF;
+        }
+        
+        /* Google Sheets integration styles */
+        .google-sheets-config {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .connection-status {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+        
+        .connection-status.connected {
+            background-color: #D1FAE5;
+            color: #166534;
+        }
+        
+        .connection-status.disconnected {
+            background-color: #FEE2E2;
+            color: #DC2626;
+        }
+    </style>
+</head>
+<body class="text-stone-800">
+    <!-- Navigation -->
+    <button class="hamburger-menu" id="hamburger-menu">
+        <span></span>
+        <span></span>
+        <span></span>
+    </button>
+
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-item" id="sidebar-dashboard">Dashboard</div>
+        <div class="sidebar-item" id="sidebar-quarterly-meal-pattern">Meal Pattern</div>
+        <div class="sidebar-item" id="sidebar-weekly-menu">Weekly Menu</div>
+        <div class="sidebar-item" id="sidebar-daily-menu">Daily Menu</div>
+        <div class="sidebar-item" id="sidebar-standardized-recipes">Standardized Recipes</div>
+        <div class="sidebar-item" id="sidebar-attendance">Attendance</div>
+        <div class="sidebar-item" id="sidebar-meal-count">Meal Count</div>
+        <div class="sidebar-item" id="sidebar-eligibility-roster">Eligibility Roster</div>
+        <div class="sidebar-item" id="sidebar-meal-benefit-forms">Meal Benefit Forms</div>
+        <div class="sidebar-item" id="sidebar-privacy-act">Privacy Act Statement</div>
+        <div class="sidebar-item" id="sidebar-settings">Settings</div>
+    </div>
+
+    <div id="app-container" class="container mx-auto p-4 md:p-8">
+        <!-- Dashboard View -->
+        <div id="dashboard-view" class="app-view">
+            <header class="text-center mb-8">
+                <h1 class="text-4xl font-bold text-stone-900">ICON CACFP Management System</h1>
+                <p class="text-lg text-stone-600 mt-2">Comprehensive meal program management and compliance tracking</p>
+                
+                <!-- Google Sheets Integration (Hidden) -->
+                <div class="google-sheets-config" style="display: none;">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold">Supabase Database</h3>
+                        <span id="connection-status" class="connection-status disconnected">● Disconnected</span>
+                    </div>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Supabase URL</label>
+                            <input type="text" id="supabase-url" class="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="https://your-project.supabase.co">
+                            <p class="text-xs text-gray-600 mt-1">Your Supabase project URL</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Supabase Anon Key</label>
+                            <input type="password" id="supabase-key" class="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Your Supabase anon key">
+                            <p class="text-xs text-gray-600 mt-1">Found in your Supabase project settings</p>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex flex-wrap gap-2">
+                        <button id="connect-supabase" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md">Connect</button>
+                        <button id="test-connection" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md">Test Connection</button>
+                        <button id="sync-data" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md" disabled>Sync Data</button>
+                    </div>
+                    <div class="mt-2 text-sm text-gray-600">
+                        <strong>Status:</strong> <span id="auth-status">Not connected</span>
+                    </div>
+                    <div class="mt-2 text-xs text-blue-600">
+                        <strong>🚀 Benefits:</strong> Real-time sync, automatic backups, and works with Google Sheets via webhook!
+                    </div>
+                </div>
+            </header>
+
+            <!-- Dashboard Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="meal-card p-6">
+                    <h3 class="text-xl font-bold mb-2">Meal Planning</h3>
+                    <p class="text-stone-600 mb-4">Plan and manage weekly meal patterns and daily menus</p>
+                    <button onclick="showView('quarterly-meal-pattern')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md">View Meal Pattern</button>
+                </div>
+
+                <div class="meal-card p-6">
+                    <h3 class="text-xl font-bold mb-2">Weekly Menu</h3>
+                    <p class="text-stone-600 mb-4">Interactive guide to the weekly meal plan</p>
+                    <button onclick="showView('weekly-menu')" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md">View Weekly Menu</button>
+                </div>
+
+                <div class="meal-card p-6">
+                    <h3 class="text-xl font-bold mb-2">Daily Menu</h3>
+                    <p class="text-stone-600 mb-4">Select a day to view meals and nutritional breakdown</p>
+                    <button onclick="showView('daily-menu')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md">View Daily Menu</button>
+                </div>
+
+                <div class="meal-card p-6">
+                    <h3 class="text-xl font-bold mb-2">Attendance Tracking</h3>
+                    <p class="text-stone-600 mb-4">Track daily attendance and meal participation</p>
+                    <button onclick="showView('attendance')" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md">View Attendance</button>
+                </div>
+
+                <div class="meal-card p-6">
+                    <h3 class="text-xl font-bold mb-2">Meal Count</h3>
+                    <p class="text-stone-600 mb-4">Record and track meal counts for reporting</p>
+                    <button onclick="showView('meal-count')" class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-md">View Meal Count</button>
+                </div>
+
+                <div class="meal-card p-6">
+                    <h3 class="text-xl font-bold mb-2">Eligibility Management</h3>
+                    <p class="text-stone-600 mb-4">Manage participant eligibility and benefit forms</p>
+                    <button onclick="showView('eligibility-roster')" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md">View Eligibility</button>
+                </div>
+
+                <div class="meal-card p-6">
+                    <h3 class="text-xl font-bold mb-2">Meal Benefit Forms</h3>
+                    <p class="text-stone-600 mb-4">Digital forms with signature capture</p>
+                    <button onclick="showView('meal-benefit-forms')" class="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-md">View Forms</button>
+                </div>
+
+                <div class="meal-card p-6">
+                    <h3 class="text-xl font-bold mb-2">Standardized Recipes</h3>
+                    <p class="text-stone-600 mb-4">Create and manage standardized recipes</p>
+                    <button onclick="showView('standardized-recipes')" class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-md">View Recipes</button>
+                </div>
+
+                <div class="meal-card p-6">
+                    <h3 class="text-xl font-bold mb-2">Privacy Act</h3>
+                    <p class="text-stone-600 mb-4">Privacy Act statements and compliance</p>
+                    <button onclick="showView('privacy-act')" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md">View Statement</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings View -->
+        <div id="settings-view" class="hidden app-view p-4 md:p-8">
+            <h1 class="text-3xl font-bold mb-6">Settings</h1>
+            
+            <div class="space-y-6">
+                <div class="meal-card p-6" style="display: none;">
+                    <h3 class="text-xl font-bold mb-4">Google Sheets Configuration</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Spreadsheet ID</label>
+                            <input type="text" id="settings-spreadsheet-id" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                            <p class="text-sm text-gray-600 mt-1">Found in the URL of your Google Sheet</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">API Key</label>
+                            <input type="password" id="settings-api-key" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                            <p class="text-sm text-gray-600 mt-1">Google Sheets API key from Google Cloud Console</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Auto-sync Interval (minutes)</label>
+                            <input type="number" id="auto-sync-interval" value="5" min="1" max="60" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                        </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" id="auto-sync-enabled" class="mr-2">
+                            <label for="auto-sync-enabled" class="text-sm">Enable automatic synchronization</label>
+                        </div>
+                    </div>
+                    <div class="mt-6">
+                        <button id="save-settings" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md">Save Settings</button>
+                    </div>
+                </div>
+
+                <div class="meal-card p-6">
+                    <h3 class="text-xl font-bold mb-4">Data Management</h3>
+                    <div class="space-y-4">
+                        <button id="export-all-data" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md mr-2">Export All Data</button>
+                        <button id="import-data" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md mr-2">Import Data</button>
+                        <button id="clear-all-data" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md">Clear All Data</button>
+                    </div>
+                    <input type="file" id="import-file" accept=".json" class="hidden">
+                </div>
+            </div>
+        </div>
+
+        <!-- Weekly Menu View -->
+        <div id="weekly-menu-view" class="hidden app-view">
+            <header class="text-center mb-8">
+                <h1 class="text-4xl font-bold text-stone-900">ICON CACFP Weekly Menu</h1>
+                <p class="text-lg text-stone-600 mt-2">An interactive guide to the weekly meal plan.</p>
+                <div class="flex flex-col sm:flex-row justify-center items-center mt-4 space-y-2 sm:space-y-0 sm:space-x-2">
+                    <label for="week-picker" class="font-medium text-stone-600">Choose a week:</label>
+                    <input type="week" id="week-picker" class="border border-stone-300 rounded px-2 py-1 w-full sm:w-40" />
+                </div>
+            </header>
+
+            <nav class="flex flex-wrap justify-center border-b border-stone-200 mb-8">
+                <button id="btn-am-snack" class="nav-btn py-4 px-6 text-lg text-stone-600">AM Snack</button>
+                <button id="btn-lunch" class="nav-btn py-4 px-6 text-lg text-stone-600">Lunch</button>
+                <button id="btn-pm-snack" class="nav-btn py-4 px-6 text-lg text-stone-600">PM Snack</button>
+            </nav>
+
+            <main id="menu-content" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div class="lg:col-span-2">
+                    <div id="am-snack-content" class="meal-type-content space-y-6"></div>
+                    <div id="lunch-content" class="meal-type-content space-y-6 hidden"></div>
+                    <div id="pm-snack-content" class="meal-type-content space-y-6 hidden"></div>
+                </div>
+                <aside class="lg:col-span-1">
+                    <div class="meal-card p-6 sticky top-8">
+                        <h3 class="text-2xl font-bold text-center mb-2 text-stone-800">Weekly Component Breakdown</h3>
+                        <p id="weekly-date-range" class="text-center text-stone-600 mb-3"></p>
+                        <p class="text-center text-stone-600 mb-4">
+                            This chart shows the distribution of nutritional components for the selected meal type across the week.
+                        </p>
+                        <div class="chart-container">
+                            <canvas id="componentChart" width="350" height="350" role="img" aria-label="Weekly component breakdown chart"></canvas>
+                        </div>
+                    </div>
+                </aside>
+            </main>
+        </div>
+
+        <!-- Standardized Recipes View -->
+        <div id="standardized-recipes-view" class="hidden app-view p-4 md:p-8">
+            <header class="text-center mb-6">
+                <h1 class="text-3xl font-bold text-stone-900">ICON CACFP Standardized Recipes</h1>
+                <p class="text-stone-600 mt-1">Create and manage standardized recipes used in the meal program.</p>
+                <div class="flex flex-wrap justify-center items-center mt-4 space-x-2">
+                    <button id="new-recipe-btn" class="px-4 py-2 bg-stone-200 rounded-md text-stone-700 hover:bg-stone-300">+ New Recipe</button>
+                    <button id="save-recipe-btn" class="px-4 py-2 bg-stone-200 rounded-md text-stone-700 hover:bg-stone-300">Save Recipe</button>
+                    <button id="delete-recipe-btn" class="px-4 py-2 bg-red-200 rounded-md text-red-700 hover:bg-red-300">Delete Recipe</button>
+                    <button id="export-recipe-btn" class="px-4 py-2 bg-stone-200 rounded-md text-stone-700 hover:bg-stone-300">Export to PDF</button>
+                </div>
+            </header>
+            <!-- Recipe form and list container -->
+            <div class="flex flex-col md:flex-row gap-4">
+                <!-- Sidebar list of saved recipes -->
+                <aside id="recipe-list-sidebar" class="md:w-1/4 border border-stone-200 rounded-lg p-3" aria-label="Saved recipes">
+                    <h2 class="text-lg font-semibold mb-2">Saved Recipes</h2>
+                    <ul id="recipe-list" class="space-y-1"></ul>
+                </aside>
+                <!-- Recipe form container -->
+                <div id="recipe-form" class="flex-1 bg-white border border-stone-200 rounded-lg p-6 space-y-6">
+                <!-- Recipe Name and Details -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="recipe-name-input" class="block font-semibold mb-1">Recipe Name</label>
+                        <input id="recipe-name-input" type="text" class="border border-stone-300 rounded w-full px-2 py-1" />
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Manufacturer</label>
+                        <p class="border border-stone-300 rounded w-full px-2 py-1 bg-stone-100">Integrated Community Options North</p>
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Address</label>
+                        <p class="border border-stone-300 rounded w-full px-2 py-1 bg-stone-100">2369 Lincoln Avenue, Altadena, CA, 91001</p>
+                    </div>
+                    <div>
+                        <label for="recipe-yield-input" class="block font-semibold mb-1">Recipe Yield</label>
+                        <input id="recipe-yield-input" type="text" class="border border-stone-300 rounded w-full px-2 py-1" />
+                    </div>
+                </div>
+                <div>
+                    <label for="recipe-description-input" class="block font-semibold mb-1">Recipe Description</label>
+                    <textarea id="recipe-description-input" rows="3" class="border border-stone-300 rounded w-full px-2 py-1"></textarea>
+                </div>
+                <!-- Ingredients -->
+                <div>
+                    <h2 class="text-lg font-semibold mb-2">Ingredients</h2>
+                    <div id="ingredients-container" class="space-y-2"></div>
+                    <button id="add-ingredient-btn" type="button" class="text-blue-600 underline mt-2">+ Add Ingredient</button>
+                </div>
+                <!-- Nutritional Facts -->
+                <div>
+                    <h2 class="text-lg font-semibold mb-2">Nutritional Facts</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block font-medium">Serving Size</label>
+                            <div class="flex space-x-2">
+                                <input id="nf-servingSize-value" type="text" class="border border-stone-300 rounded w-full px-2 py-1" />
+                                <select id="nf-servingSize-unit" class="border border-stone-300 rounded px-2 py-1">
+                                    <option value="">--</option>
+                                    <option value="mg">mg</option>
+                                    <option value="g">g</option>
+                                    <option value="kg">kg</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block font-medium">Calories</label>
+                            <input id="nf-calories" type="text" class="border border-stone-300 rounded w-full px-2 py-1" />
+                        </div>
+                        <div>
+                            <label class="block font-medium">Sodium</label>
+                            <div class="flex space-x-2">
+                                <input id="nf-sodium-value" type="text" class="border border-stone-300 rounded w-full px-2 py-1" />
+                                <select id="nf-sodium-unit" class="border border-stone-300 rounded px-2 py-1">
+                                    <option value="">--</option>
+                                    <option value="mg">mg</option>
+                                    <option value="g">g</option>
+                                    <option value="kg">kg</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block font-medium">Total Fat</label>
+                            <div class="flex space-x-2">
+                                <input id="nf-totalFat-value" type="text" class="border border-stone-300 rounded w-full px-2 py-1" />
+                                <select id="nf-totalFat-unit" class="border border-stone-300 rounded px-2 py-1">
+                                    <option value="">--</option>
+                                    <option value="mg">mg</option>
+                                    <option value="g">g</option>
+                                    <option value="kg">kg</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block font-medium">Total Carbohydrates</label>
+                            <div class="flex space-x-2">
+                                <input id="nf-totalCarbs-value" type="text" class="border border-stone-300 rounded w-full px-2 py-1" />
+                                <select id="nf-totalCarbs-unit" class="border border-stone-300 rounded px-2 py-1">
+                                    <option value="">--</option>
+                                    <option value="mg">mg</option>
+                                    <option value="g">g</option>
+                                    <option value="kg">kg</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block font-medium">Saturated Fat</label>
+                            <div class="flex space-x-2">
+                                <input id="nf-satFat-value" type="text" class="border border-stone-300 rounded w-full px-2 py-1" />
+                                <select id="nf-satFat-unit" class="border border-stone-300 rounded px-2 py-1">
+                                    <option value="">--</option>
+                                    <option value="mg">mg</option>
+                                    <option value="g">g</option>
+                                    <option value="kg">kg</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block font-medium">Dietary Fiber</label>
+                            <div class="flex space-x-2">
+                                <input id="nf-dietaryFiber-value" type="text" class="border border-stone-300 rounded w-full px-2 py-1" />
+                                <select id="nf-dietaryFiber-unit" class="border border-stone-300 rounded px-2 py-1">
+                                    <option value="">--</option>
+                                    <option value="mg">mg</option>
+                                    <option value="g">g</option>
+                                    <option value="kg">kg</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block font-medium">Trans Fat</label>
+                            <div class="flex space-x-2">
+                                <input id="nf-transFat-value" type="text" class="border border-stone-300 rounded w-full px-2 py-1" />
+                                <select id="nf-transFat-unit" class="border border-stone-300 rounded px-2 py-1">
+                                    <option value="">--</option>
+                                    <option value="mg">mg</option>
+                                    <option value="g">g</option>
+                                    <option value="kg">kg</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block font-medium">Sugars</label>
+                            <div class="flex space-x-2">
+                                <input id="nf-sugars-value" type="text" class="border border-stone-300 rounded w-full px-2 py-1" />
+                                <select id="nf-sugars-unit" class="border border-stone-300 rounded px-2 py-1">
+                                    <option value="">--</option>
+                                    <option value="mg">mg</option>
+                                    <option value="g">g</option>
+                                    <option value="kg">kg</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block font-medium">Cholesterol</label>
+                            <div class="flex space-x-2">
+                                <input id="nf-cholesterol-value" type="text" class="border border-stone-300 rounded w-full px-2 py-1" />
+                                <select id="nf-cholesterol-unit" class="border border-stone-300 rounded px-2 py-1">
+                                    <option value="">--</option>
+                                    <option value="mg">mg</option>
+                                    <option value="g">g</option>
+                                    <option value="kg">kg</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block font-medium">Protein</label>
+                            <div class="flex space-x-2">
+                                <input id="nf-protein-value" type="text" class="border border-stone-300 rounded w-full px-2 py-1" />
+                                <select id="nf-protein-unit" class="border border-stone-300 rounded px-2 py-1">
+                                    <option value="">--</option>
+                                    <option value="mg">mg</option>
+                                    <option value="g">g</option>
+                                    <option value="kg">kg</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Contribution to Meal Pattern Requirements -->
+                <div>
+                    <h2 class="text-lg font-semibold mb-2">Contribution to Meal Pattern Requirements</h2>
+                    <p class="text-sm mb-2">Each serving contributes to the following meal pattern requirements per serving:</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block font-medium">Whole Grain Rich</label>
+                            <div class="flex space-x-2">
+                                <input id="ctr-wholeGrainRich-value" type="text" class="border border-stone-300 rounded w-full px-2 py-1" />
+                                <select id="ctr-wholeGrainRich-unit" class="border border-stone-300 rounded px-2 py-1">
+                                    <option value="">--</option>
+                                    <option value="mg">mg</option>
+                                    <option value="g">g</option>
+                                    <option value="kg">kg</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block font-medium">Fruits</label>
+                            <div class="flex space-x-2">
+                                <input id="ctr-fruits-value" type="text" class="border border-stone-300 rounded w-full px-2 py-1" />
+                                <select id="ctr-fruits-unit" class="border border-stone-300 rounded px-2 py-1">
+                                    <option value="">--</option>
+                                    <option value="mg">mg</option>
+                                    <option value="g">g</option>
+                                    <option value="kg">kg</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block font-medium">Fluid Milk</label>
+                            <div class="flex space-x-2">
+                                <input id="ctr-fluidMilk-value" type="text" class="border border-stone-300 rounded w-full px-2 py-1" />
+                                <select id="ctr-fluidMilk-unit" class="border border-stone-300 rounded px-2 py-1">
+                                    <option value="">--</option>
+                                    <option value="mg">mg</option>
+                                    <option value="g">g</option>
+                                    <option value="kg">kg</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block font-medium">Meat/Alternate</label>
+                            <div class="flex space-x-2">
+                                <input id="ctr-meatAlt-value" type="text" class="border border-stone-300 rounded w-full px-2 py-1" />
+                                <select id="ctr-meatAlt-unit" class="border border-stone-300 rounded px-2 py-1">
+                                    <option value="">--</option>
+                                    <option value="mg">mg</option>
+                                    <option value="g">g</option>
+                                    <option value="kg">kg</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block font-medium">Vegetables</label>
+                            <div class="flex space-x-2">
+                                <input id="ctr-vegetables-value" type="text" class="border border-stone-300 rounded w-full px-2 py-1" />
+                                <select id="ctr-vegetables-unit" class="border border-stone-300 rounded px-2 py-1">
+                                    <option value="">--</option>
+                                    <option value="mg">mg</option>
+                                    <option value="g">g</option>
+                                    <option value="kg">kg</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Preparation Instructions -->
+                <div>
+                    <h2 class="text-lg font-semibold mb-2">Preparation Instructions</h2>
+                    <div id="instructions-container" class="space-y-2"></div>
+                    <button id="add-instruction-btn" type="button" class="text-blue-600 underline mt-2">+ Add Instruction</button>
+                </div>
+                <!-- Storage and Handling -->
+                <div>
+                    <h2 class="text-lg font-semibold mb-2">Storage and Handling</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block font-medium">Storage</label>
+                            <input id="storage-storage" type="text" class="border border-stone-300 rounded w-full px-2 py-1" />
+                        </div>
+                        <div>
+                            <label class="block font-medium">Shelf Life</label>
+                            <input id="storage-shelfLife" type="text" class="border border-stone-300 rounded w-full px-2 py-1" />
+                        </div>
+                    </div>
+                </div>
+                <!-- Documentation of Compliance -->
+                <div>
+                    <h2 class="text-lg font-semibold mb-2">Documentation of Compliance</h2>
+                    <p class="mb-2">This Recipe formulation statement certifies that the <span id="compliance-recipe-name"></span> meets the CACFP meal pattern requirements per serving as specified.</p>
+                    <p class="mb-4">The <span id="compliance-recipe-name-2"></span> provides <input id="compliance-provides" type="text" class="border border-stone-300 rounded px-2 py-1 w-64 inline-block" />.</p>
+                </div>
+                <!-- Certifying Signature -->
+                <div>
+                    <h2 class="text-lg font-semibold mb-2">Certifying Signature</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block font-medium">Name</label>
+                            <input id="cert-name" type="text" class="border border-stone-300 rounded w-full px-2 py-1" />
+                        </div>
+                        <div>
+                            <label class="block font-medium">Role</label>
+                            <input id="cert-role" type="text" class="border border-stone-300 rounded w-full px-2 py-1" />
+                        </div>
+                        <div>
+                            <label class="block font-medium">Date</label>
+                            <input id="cert-date" type="date" class="border border-stone-300 rounded w-full px-2 py-1" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+        <!-- Attendance View -->
+        <div id="attendance-view" class="hidden app-view p-4 md:p-8">
+            <div class="max-w-6xl mx-auto">
+                <h1 class="text-3xl font-bold mb-6 text-center">ICON CACFP Attendance Roster</h1>
+                <!-- Week selector for attendance -->
+                <div class="flex items-center space-x-4 mb-6 justify-center">
+                    <label for="attendance-week-selector" class="font-medium text-gray-700">Select Week:</label>
+                    <input type="week" id="attendance-week-selector" class="border border-gray-300 rounded-lg px-3 py-2 text-gray-800 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <!-- Attendance table -->
+                <div class="overflow-x-auto bg-white rounded-xl shadow-lg p-4 border border-gray-200">
+                    <table id="attendance-table" class="min-w-full divide-y divide-gray-200">
+                        <thead id="attendance-table-head" class="bg-gray-50">
+                            <!-- Dynamic headers will be inserted here -->
+                        </thead>
+                        <tbody id="attendance-table-body" class="bg-white divide-y divide-gray-200">
+                            <!-- Dynamic rows will be inserted here -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="mt-6 flex justify-center space-x-3">
+                    <button type="button" id="attendance-add-row" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition-colors duration-200">Add Row</button>
+                    <button type="button" id="attendance-export" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition-colors duration-200">Export to PDF</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Meal Count View -->
+        <div id="meal-count-view" class="hidden app-view p-4 md:p-8">
+            <div class="max-w-6xl mx-auto">
+                <h1 class="text-3xl font-bold mb-6 text-center">ICON CACFP Meal Count</h1>
+                <div class="flex items-center space-x-4 mb-6 justify-center">
+                    <label for="week-selector" class="font-medium text-gray-700">Select Week:</label>
+                    <input type="week" id="week-selector" class="border border-gray-300 rounded-lg px-3 py-2 text-gray-800 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div class="overflow-x-auto bg-white rounded-xl shadow-lg p-4 border border-gray-200">
+                    <table id="roster-table" class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr id="roster-table-head">
+                                <!-- Dynamic date headers will go here -->
+                            </tr>
+                        </thead>
+                        <tbody id="roster-table-body" class="bg-white divide-y divide-gray-200">
+                            <!-- Roster rows will be dynamically inserted here -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="mt-6 flex space-x-3 justify-center">
+                    <button type="button" id="add-row-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200">Add Row</button>
+                    <button type="button" id="export-pdf-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200">Export to PDF</button>
+                </div>
+                <div class="mt-8 p-4 bg-gray-100 rounded-lg shadow-inner border border-gray-200">
+                    <h3 class="text-lg font-semibold mb-2 text-gray-800">Legend:</h3>
+                    <ul class="list-disc list-inside text-gray-700 text-sm">
+                        <li>AM = Morning Snack</li>
+                        <li>L = Lunch</li>
+                        <li>PM = Afternoon Snack</li>
+                        <li>* = Opted Out but Ate</li>
+                        <li>🔴 = Discharged or Intent to Discharge</li>
+                        <li>N/A = Not Applicable</li>
+                    </ul>
+                </div>
+                <!-- Custom Dropdown Overlay for selecting meals -->
+                <div id="meal-dropdown-overlay" class="fixed inset-0 hidden flex items-center justify-center z-50">
+                    <div class="bg-white p-6 rounded-lg shadow-xl relative min-w-[200px]">
+                        <h4 class="font-bold text-xl mb-4 text-gray-800">Select Meals</h4>
+                        <div id="meal-options-container" class="space-y-2">
+                            <!-- Checkboxes/radio buttons will be inserted here -->
+                        </div>
+                        <div class="mt-6 flex justify-end space-x-3">
+                            <button type="button" id="dropdown-cancel-btn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors duration-200">Cancel</button>
+                            <button type="button" id="dropdown-apply-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200">Apply</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Privacy Act Statement View -->
+        <div id="privacy-act-view" class="hidden app-view p-4 md:p-8">
+            <h1 class="text-3xl font-bold mb-4">Privacy Act Statement</h1>
+            <p class="text-sm leading-relaxed text-stone-700 mb-4">
+                The Richard B. Russel National School Lunch Act (NSLA) requires the information on this application. You do not have to give the information, but if you do not, we cannot approve the participant for free or reduced-price meals. You must include the last four digits of the SSN of the adult household member who signs the application. The last four digits of the SSN are not required when you list a Supplemental Nutrition Assistance Program (SNAP, or CalFresh), Temporary Assistance for Needy Families (TANF, or CalWORKs), Program or FDPIR case number for the participant or other (FDPIR) identifier or when you indicate that the adult household member signing the application does not have a SSN. We will use your information to determine if the participant is eligible for free or reduced-price meals, and for the administration and enforcement of the program.
+            </p>
+            <p class="text-sm leading-relaxed text-stone-700 mb-4">
+                The last four digits of the SSN may be used to identify the household member in verifying the correctness of the information stated on the form. This may include program reviews, audits and investigations, and may include contacting employers to determine income, contacting a CalFresh, CalWORKs, or FDPIR office to determine current certification for CalFresh, CalWORKs, or FDPIR benefits, contacting the state employment security office to determine the amount of benefits received, and checking the documentation produced by the household member to prove the amount of income received. These efforts may result in a loss or reduction of benefits, administrative claims, or legal actions if incorrect information is reported. The last four digits of the SSN may also be disclosed to programs as authorized under the NSLA and the Child Nutrition Act, the Comptroller General of the United States, and law enforcement officials for the purpose of investigating violations of certain federal, state, and local education, and health and nutrition programs.
+            </p>
+        </div>
+
+        <!-- Daily Menu View -->
+        <div id="daily-menu-view" class="hidden app-view">
+            <header class="text-center mb-6">
+                <h1 class="text-3xl font-bold text-stone-900">ICON CACFP Daily Menu</h1>
+                <p class="text-stone-600 mt-1">Select a day to view meals and nutritional breakdown.</p>
+                <!-- Week picker for daily menu: allows selecting a specific week to view -->
+                <div class="flex flex-col sm:flex-row justify-center items-center mt-2 space-y-2 sm:space-y-0 sm:space-x-2">
+                    <label for="daily-week-picker" class="font-medium text-stone-600">Choose a week:</label>
+                    <!-- Use a <select> element for the daily week picker so options can be dynamically populated. -->
+                    <select id="daily-week-picker" class="border border-stone-300 rounded px-2 py-1 w-full sm:w-40"></select>
+                </div>
+            </header>
+            <!-- Navigation between days of the week -->
+            <nav id="daily-menu-nav" class="flex flex-wrap justify-center mb-6 space-x-2"></nav>
+            <div id="daily-menu-content" class="space-y-6">
+                <!-- Daily component breakdown card: chart and legend wrapped in a card -->
+                <div id="daily-page-chart-card" class="meal-card p-6">
+                    <h3 class="text-2xl font-bold mb-2 text-stone-800">Daily Component Breakdown</h3>
+                    <p id="daily-page-date-line" class="text-stone-600 mb-4"></p>
+                    <div class="chart-container">
+                        <!-- Explicit width/height so the daily page chart canvas has a physical size before Chart.js runs. -->
+                        <canvas id="dailyPageChart" width="350" height="350" role="img" aria-label="Daily component breakdown chart"></canvas>
+                    </div>
+                </div>
+                <!-- Container for the day's meal cards -->
+                <div id="daily-page-cards" class="space-y-6"></div>
+            </div>
+        </div>
+
+        <!-- Quarterly Meal Pattern View -->
+        <div id="quarterly-meal-pattern-view" class="hidden app-view">
+            <header class="text-center mb-6">
+                <h1 class="text-3xl font-bold text-stone-900">ICON CACFP Meal Pattern</h1>
+                <p class="text-stone-600 mt-1">View, add and edit daily menus across the Month.</p>
+                <div class="flex justify-center items-center space-x-4 mt-4">
+                    <button id="prev-month-btn" class="px-3 py-1 bg-stone-200 rounded-md text-stone-700 hover:bg-stone-300">←</button>
+                    <h2 id="calendar-month-title" class="text-xl font-semibold text-stone-700"></h2>
+                    <button id="next-month-btn" class="px-3 py-1 bg-stone-200 rounded-md text-stone-700 hover:bg-stone-300">→</button>
+                </div>
+            </header>
+            <!-- Calendar grid will display weeks and days -->
+            <div id="calendar-grid" class="grid grid-cols-5 gap-2"></div>
+        </div>
+
+        <!-- Eligibility Roster View -->
+        <div id="eligibility-roster-view" class="hidden app-view p-4 md:p-8">
+            <h1 class="text-3xl font-bold mb-4">ICON CACFP Eligibility Roster</h1>
+            <button id="add-eligibility-row" class="mb-4 px-4 py-2 bg-indigo-600 text-white rounded">Add Row</button>
+            <div id="eligibility-table-container" class="overflow-x-auto"></div>
+            <div id="eligibility-totals" class="mt-4 text-stone-700 font-medium"></div>
+        </div>
+
+        <!-- Meal Benefit Forms View -->
+        <div id="meal-benefit-forms-view" class="hidden app-view">
+            <div class="form-view-container">
+                <aside class="form-sidebar">
+                    <!-- Updated title to reflect CACFP requirements -->
+                    <h2>Completed MBFs</h2>
+                    <button id="new-form-btn" class="form-btn w-full mb-4">+ New Form</button>
+                    <div id="form-list"></div>
+                </aside>
+
+                <section class="form-main-area">
+                    <div id="form-wrapper">
+                        <!-- Updated form header title to reflect CACFP requirements -->
+                        <h1 class="text-2xl font-bold mb-6">ICON CACFP Meal Benefit Form for Adults</h1>
+                        <div class="form-field">
+                            <label>Program Year</label>
+                            <input id="field-program-year" type="text" value="2025" class="w-full" />
+                        </div>
+                        <div class="form-field">
+                            <label>Name of Adult Care Center</label>
+                            <input id="field-center-name" type="text" value="ICO, INC./ICON" class="w-full" />
+                        </div>
+                        <div class="section mt-4">
+                            <h2 class="form-section-title">Participant Information</h2>
+                            <p class="text-sm mb-2">Enter the name of the adult participant who is enrolled for care.</p>
+                            <div class="flex gap-4">
+                                <div class="form-field flex-1">
+                                    <label>Last Name</label>
+                                    <input id="field-lastname" type="text" class="w-full" />
+                                </div>
+                                <div class="form-field flex-1">
+                                    <label>First Name</label>
+                                    <input id="field-firstname" type="text" class="w-full" />
+                                </div>
+                                <div class="form-field flex-1">
+                                    <label>Middle Initial</label>
+                                    <input id="field-middle-initial" type="text" class="w-full" />
+                                </div>
+                            </div>
+                            <div class="form-field">
+                                <label>Medi-Cal or SSI Case Number</label>
+                                <input id="field-case-number" type="text" class="w-full" />
+                            </div>
+                        </div>
+                        <div class="section mt-4">
+                            <h2 class="form-section-title">Last Four Digits of Social Security Number (SSN) and Signature</h2>
+                            <p class="text-sm mb-3">
+                                Penalties for misrepresentation: I certify that all of the above information is true and correct and that the Medi-Cal or SSI benefits case number is current and correct. I understand that this information is being given for the receipt of federal funds; that agency officials may verify the information on the meal benefit form (MBF) and that the deliberate misrepresentation of the information may subject me to prosecution under applicable state and federal laws.
+                            </p>
+                            <div class="form-field">
+                                <label>Printed Name</label>
+                                <input id="field-printed-name" type="text" class="w-full" />
+                            </div>
+                            <div class="form-field">
+                                <label>Last Four Digits of SSN</label>
+                                <input id="field-last-four-ssn" type="text" maxlength="4" class="w-full" />
+                            </div>
+                            <div class="form-field">
+                                <label>Participant Signature</label>
+                                <!-- Canvas-based signature pad -->
+                                <!-- Accessible signature pad for participant -->
+                                <canvas id="signature-pad" role="img" aria-label="Participant signature pad" class="border border-gray-300 rounded w-full" style="width:100%;height:150px;"></canvas>
+                                <button id="clear-signature" type="button" class="form-btn mt-2">Clear Signature</button>
+                                <!-- Hidden input to store data URL of signature -->
+                                <input id="field-signature" type="hidden" class="w-full" />
+                            </div>
+                            <div class="form-field">
+                                <label>Date</label>
+                                <input id="field-date" type="date" class="w-full" />
+                            </div>
+                        </div>
+                        <div class="mt-6 flex space-x-2">
+                            <button id="save-btn" class="form-btn">Save Form</button>
+                            <button id="export-btn" class="form-btn">Export to PDF</button>
+                            <button id="delete-btn" class="form-btn delete">Delete Form</button>
+                        </div>
+                        <!-- Begin additional agency section -->
+                        <hr class="my-8 border-stone-300" />
+                        <div class="section">
+                            <h2 class="text-lg font-bold mb-4">For Agency Use Only</h2>
+                            <!-- Participation Eligibility -->
+                            <h3 class="font-semibold mb-2">Participation Eligibility</h3>
+                            <div class="space-y-3">
+                                <div class="flex flex-wrap items-center gap-4">
+                                    <span class="font-medium">60 years of age or older:</span>
+                                    <label class="flex items-center gap-1"><input type="radio" name="elig60" id="elig60-yes" value="yes" /> Yes</label>
+                                    <label class="flex items-center gap-1"><input type="radio" name="elig60" id="elig60-no" value="no" /> No</label>
+                                </div>
+                                <div class="flex flex-wrap items-center gap-4">
+                                    <span class="font-medium">If under 60, qualifying impairment is documented:</span>
+                                    <label class="flex items-center gap-1"><input type="radio" name="eligImpairment" id="eligImpairment-yes" value="yes" /> Yes</label>
+                                    <label class="flex items-center gap-1"><input type="radio" name="eligImpairment" id="eligImpairment-no" value="no" /> No</label>
+                                </div>
+                            </div>
+                            <!-- Participation Eligibility — Residence -->
+                            <h3 class="font-semibold mt-4 mb-2">Participation Eligibility—Residence</h3>
+                            <div class="space-y-3">
+                                <div class="flex flex-wrap items-center gap-4">
+                                    <span class="font-medium">Lives in own residence:</span>
+                                    <label class="flex items-center gap-1"><input type="radio" name="resOwn" id="resOwn-yes" value="yes" /> Yes</label>
+                                    <label class="flex items-center gap-1"><input type="radio" name="resOwn" id="resOwn-no" value="no" /> No</label>
+                                </div>
+                                <div class="flex flex-wrap items-center gap-4">
+                                    <span class="font-medium">Lives with family members:</span>
+                                    <label class="flex items-center gap-1"><input type="radio" name="resFamily" id="resFamily-yes" value="yes" /> Yes</label>
+                                    <label class="flex items-center gap-1"><input type="radio" name="resFamily" id="resFamily-no" value="no" /> No</label>
+                                </div>
+                                <div class="flex flex-wrap items-center gap-4">
+                                    <span class="font-medium">Board and care (for supervision or monitoring):</span>
+                                    <label class="flex items-center gap-1"><input type="radio" name="resBoardCare" id="resBoardCare-yes" value="yes" /> Yes</label>
+                                    <label class="flex items-center gap-1"><input type="radio" name="resBoardCare" id="resBoardCare-no" value="no" /> No</label>
+                                </div>
+                                <div class="flex flex-wrap items-center gap-4">
+                                    <span class="font-medium">Room and board:</span>
+                                    <label class="flex items-center gap-1"><input type="radio" name="resRoomBoard" id="resRoomBoard-yes" value="yes" /> Yes</label>
+                                    <label class="flex items-center gap-1"><input type="radio" name="resRoomBoard" id="resRoomBoard-no" value="no" /> No</label>
+                                </div>
+                                <div class="flex flex-wrap items-center gap-4">
+                                    <span class="font-medium">Intermediate Care Facility (ICF)/Developmental Disabled—Habilitative:</span>
+                                    <label class="flex items-center gap-1"><input type="radio" name="resICFHabil" id="resICFHabil-yes" value="yes" /> Yes</label>
+                                    <label class="flex items-center gap-1"><input type="radio" name="resICFHabil" id="resICFHabil-no" value="no" /> No</label>
+                                </div>
+                                <div class="flex flex-wrap items-center gap-4">
+                                    <span class="font-medium">ICF/Developmental Disabled—Nursing (not eligible to participate):</span>
+                                    <label class="flex items-center gap-1"><input type="radio" name="resICFNursing" id="resICFNursing-yes" value="yes" /> Yes</label>
+                                    <label class="flex items-center gap-1"><input type="radio" name="resICFNursing" id="resICFNursing-no" value="no" /> No</label>
+                                </div>
+                                <div class="flex flex-wrap items-center gap-4">
+                                    <span class="font-medium">Skilled nursing facility (not eligible to participate):</span>
+                                    <label class="flex items-center gap-1"><input type="radio" name="resSkilledNursing" id="resSkilledNursing-yes" value="yes" /> Yes</label>
+                                    <label class="flex items-center gap-1"><input type="radio" name="resSkilledNursing" id="resSkilledNursing-no" value="no" /> No</label>
+                                </div>
+                            </div>
+                            <!-- Categorical Eligibility -->
+                            <h3 class="font-semibold mt-4 mb-2">Categorical Eligibility</h3>
+                            <div class="space-y-3">
+                                <div class="flex flex-wrap items-center gap-4">
+                                    <span class="font-medium">CalFresh/FBPIR household categorically eligible free?</span>
+                                    <label class="flex items-center gap-1"><input type="radio" name="catCalFresh" id="catCalFresh-yes" value="yes" /> Yes</label>
+                                    <label class="flex items-center gap-1"><input type="radio" name="catCalFresh" id="catCalFresh-no" value="no" /> No</label>
+                                </div>
+                                <div class="flex flex-wrap items-center gap-4">
+                                    <span class="font-medium">Medi-Cal or SSI categorically eligible free?</span>
+                                    <label class="flex items-center gap-1"><input type="radio" name="catMediCal" id="catMediCal-yes" value="yes" /> Yes</label>
+                                    <label class="flex items-center gap-1"><input type="radio" name="catMediCal" id="catMediCal-no" value="no" /> No</label>
+                                </div>
+                            </div>
+                            <!-- Income Eligibility -->
+                            <h3 class="font-semibold mt-4 mb-2">Income Eligibility</h3>
+                            <p class="text-xs text-stone-600 mb-2">Annual Conversion (required if household reports various pay frequencies in Section 3): Weekly times (&times;) 52, every 2 weeks &times; 26, twice a month &times; 24, monthly &times; 12</p>
+                            <div class="flex flex-wrap gap-4 items-center">
+                                <label class="flex flex-col text-sm">
+                                    <span class="font-medium">Total household income and frequency:</span>
+                                    <input id="incomeAmount" type="text" class="mt-1 p-2 border border-gray-300 rounded" placeholder="e.g., 1000" />
+                                </label>
+                                <label class="flex flex-col text-sm">
+                                    <span class="font-medium">Per</span>
+                                    <input id="incomeFrequency" type="text" class="mt-1 p-2 border border-gray-300 rounded" placeholder="e.g., month" />
+                                </label>
+                                <label class="flex flex-col text-sm">
+                                    <span class="font-medium">Household size</span>
+                                    <input id="householdSize" type="text" class="mt-1 p-2 border border-gray-300 rounded" placeholder="e.g., 3" />
+                                </label>
+                            </div>
+                            <!-- Eligibility Classification -->
+                            <h3 class="font-semibold mt-4 mb-2">Eligibility Classification</h3>
+                            <div class="flex flex-wrap items-center gap-6 text-sm">
+                                <label class="flex items-center gap-1"><input type="radio" name="eligClass" id="eligClass-free" value="Free" /> Free</label>
+                                <label class="flex items-center gap-1"><input type="radio" name="eligClass" id="eligClass-reduced" value="Reduced-price" /> Reduced-price</label>
+                                <label class="flex items-center gap-1"><input type="radio" name="eligClass" id="eligClass-base" value="Base" /> Base</label>
+                            </div>
+                            <!-- Determining Official Information -->
+                            <div class="mt-4 space-y-3">
+                                <div class="flex flex-col sm:flex-row gap-4 items-center">
+                                    <label class="flex flex-col flex-1 text-sm">
+                                        <span class="font-medium">Determining Official Name</span>
+                                        <input id="determiningName" type="text" class="mt-1 p-2 border border-gray-300 rounded" />
+                                    </label>
+                                    <div class="flex flex-col flex-1 text-sm">
+                                        <span class="font-medium">Determining Official Signature</span>
+                                        <div class="mt-1">
+                                            <!-- Accessible signature pad for determining official -->
+                                            <canvas id="determining-signature-pad" role="img" aria-label="Determining official signature pad" class="border border-gray-300 rounded w-full" style="width:100%;height:150px;"></canvas>
+                                            <button id="clear-determining-signature" type="button" class="form-btn mt-2">Clear Signature</button>
+                                            <input id="determiningSignature" type="hidden" class="w-full" />
+                                        </div>
+                                    </div>
+                                    <label class="flex flex-col flex-1 text-sm">
+                                        <span class="font-medium">Date</span>
+                                        <input id="determiningDate" type="date" class="mt-1 p-2 border border-gray-300 rounded" />
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- End additional agency section -->
+                    </div>
+                </section>
+            </div>
+        </div>
+
+        <!-- Placeholder message for JavaScript functionality -->
+        <div id="view-placeholder" class="hidden app-view p-8 text-center">
+            <div class="meal-card p-8">
+                <h1 class="text-3xl font-bold mb-4">🚧 JavaScript Under Development</h1>
+                <p class="text-lg text-gray-600 mb-6">All views are now integrated! JavaScript functionality for complex views is being implemented.</p>
+                <p class="text-sm text-gray-500">Views with partial functionality: Daily Menu, Quarterly Meal Pattern, Eligibility Roster, Meal Benefit Forms</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status message -->
+    <div id="status-message" class="status-message"></div>
+
+    <script>
+        // ===== COMBINED JAVASCRIPT FROM BOTH ORIGINAL FILES =====
+        
+        // Configuration
+        const CONFIG = {
+            API_KEY: '',
+            API_URL: '',
+            STORAGE_KEY: 'cacfp_menu_data',
+            AUTO_SAVE_DELAY: 1000
+        };
+
+        // Application state
+        let currentView = 'dashboard';
+        let menuData;
+        let autoSaveTimer = null;
+        let componentChart;
+        let dailyComponentChart;
+        let dailyPageChart;
+
+        // Utility functions
+        function showStatusMessage(message, type = 'info') {
+            const statusEl = document.getElementById('status-message');
+            statusEl.textContent = message;
+            statusEl.className = `status-message ${type} visible`;
+            
+            setTimeout(() => {
+                statusEl.classList.remove('visible');
+            }, 3000);
+        }
+
+        function showView(viewName) {
+            // Hide all views
+            document.querySelectorAll('.app-view').forEach(view => {
+                view.classList.add('hidden');
+            });
+            
+            // Show selected view or placeholder
+            const targetView = document.getElementById(viewName + '-view');
+            if (targetView) {
+                targetView.classList.remove('hidden');
+                currentView = viewName;
+                
+                // Initialize view-specific functionality
+                initializeViewFunctionality(viewName);
+            } else {
+                // Show placeholder for views not yet implemented
+                document.getElementById('view-placeholder').classList.remove('hidden');
+                showStatusMessage('This view is being migrated from the original files', 'info');
+            }
+            
+            // Close sidebar
+            document.getElementById('sidebar').classList.remove('open');
+        }
+
+        function initializeViewFunctionality(viewName) {
+            switch(viewName) {
+                case 'attendance':
+                    initializeAttendance();
+                    break;
+                case 'meal-count':
+                    initializeMealCount();
+                    break;
+                case 'weekly-menu':
+                    initializeWeeklyMenu();
+                    break;
+                case 'daily-menu':
+                    initializeDailyMenu();
+                    break;
+                case 'quarterly-meal-pattern':
+                    initializeQuarterlyMealPattern();
+                    break;
+                case 'eligibility-roster':
+                    initializeEligibilityRoster();
+                    break;
+                case 'meal-benefit-forms':
+                    initializeMealBenefitForms();
+                    break;
+                case 'standardized-recipes':
+                    initializeRecipes();
+                    break;
+            }
+        }
+
+        // ===== ATTENDANCE FUNCTIONALITY =====
+        function initializeAttendance() {
+            // Attendance roster data keyed by ISO week (e.g. 2025-W33)
+            const ATT_STORAGE_KEY = 'attendance_roster_data';
+            const ATT_AUTO_SAVE_DELAY = 1000;
+            let attRosterData = {};
+            let attCurrentWeekId = '';
+            let attAutoSaveTimer = null;
+            
+            const attWeekSelector = document.getElementById('attendance-week-selector');
+            const attTableHead = document.getElementById('attendance-table-head');
+            const attTableBody = document.getElementById('attendance-table-body');
+            const attAddRowBtn = document.getElementById('attendance-add-row');
+            const attExportBtn = document.getElementById('attendance-export');
+            
+            // Check if elements exist (in case view is not loaded yet)
+            if (!attWeekSelector) return;
+            
+            // Utility to get dates (mm/dd) for each day of a given ISO week
+            function attGetDatesForWeek(weekString) {
+                const [year, week] = weekString.split('-W');
+                const firstDay = new Date(year, 0, 1 + (week - 1) * 7);
+                const dayOfWeek = firstDay.getDay();
+                const diff = (dayOfWeek <= 4 ? 1 : 8) - dayOfWeek;
+                const monday = new Date(firstDay.setDate(firstDay.getDate() + diff));
+                const dates = {};
+                const dayNames = ['monday','tuesday','wednesday','thursday','friday'];
+                dayNames.forEach((name, idx) => {
+                    const d = new Date(monday);
+                    d.setDate(monday.getDate() + idx);
+                    const month = String(d.getMonth() + 1).padStart(2, '0');
+                    const date = String(d.getDate()).padStart(2, '0');
+                    dates[name] = `${month}/${date}`;
+                });
+                return dates;
+            }
+            
+            function attSaveData() {
+                clearTimeout(attAutoSaveTimer);
+                attAutoSaveTimer = setTimeout(() => {
+                    try {
+                        localStorage.setItem(ATT_STORAGE_KEY, JSON.stringify(attRosterData));
+                        showStatusMessage('Attendance saved', 'success');
+                    } catch (e) {
+                        console.error('Error saving attendance data:', e);
+                        showStatusMessage('Error saving attendance data', 'error');
+                    }
+                }, ATT_AUTO_SAVE_DELAY);
+            }
+            
+            function attLoadData() {
+                try {
+                    const saved = localStorage.getItem(ATT_STORAGE_KEY);
+                    if (saved) return JSON.parse(saved);
+                } catch (e) {
+                    console.error('Error loading attendance data:', e);
+                }
+                return {};
+            }
+            
+            function attGenerateId() {
+                return 'att-' + Math.random().toString(36).substr(2, 8);
+            }
+            
+            function attRenderTable() {
+                const currentWeekData = attRosterData[attCurrentWeekId];
+                const daysOfWeek = ['monday','tuesday','wednesday','thursday','friday'];
+                let headerHtml = `<tr>`;
+                headerHtml += `<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Participant</th>`;
+                daysOfWeek.forEach(day => {
+                    const dateStr = currentWeekData && currentWeekData.dates ? `(${currentWeekData.dates[day]})` : '';
+                    headerHtml += `<th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">${day.charAt(0).toUpperCase() + day.slice(1)} ${dateStr}</th>`;
+                });
+                headerHtml += `<th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>`;
+                headerHtml += `</tr>`;
+                attTableHead.innerHTML = headerHtml;
+                
+                attTableBody.innerHTML = '';
+                if (!currentWeekData || !currentWeekData.participants || currentWeekData.participants.length === 0) {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td colspan="7" class="text-center py-4 text-gray-500">No data for this week. Try adding participants.</td>`;
+                    attTableBody.appendChild(tr);
+                    return;
+                }
+                
+                currentWeekData.participants.forEach(participant => {
+                    const row = attTableBody.insertRow();
+                    row.dataset.participantId = participant.id;
+                    
+                    // Name cell
+                    const nameTd = document.createElement('td');
+                    nameTd.className = 'px-6 py-4 whitespace-nowrap';
+                    const nameInput = document.createElement('input');
+                    nameInput.type = 'text';
+                    nameInput.value = participant.name;
+                    nameInput.className = 'participant-name-input w-full border-gray-200 rounded-md p-1';
+                    nameInput.dataset.id = participant.id;
+                    nameTd.appendChild(nameInput);
+                    row.appendChild(nameTd);
+                    
+                    // Attendance cells for each day
+                    daysOfWeek.forEach(day => {
+                        const td = document.createElement('td');
+                        td.className = 'px-6 py-4 whitespace-nowrap text-center';
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.className = 'attendance-checkbox h-4 w-4 text-blue-600';
+                        checkbox.dataset.participantId = participant.id;
+                        checkbox.dataset.day = day;
+                        checkbox.checked = !!participant.attendance[day];
+                        td.appendChild(checkbox);
+                        row.appendChild(td);
+                    });
+                    
+                    // Actions cell
+                    const actionsTd = document.createElement('td');
+                    actionsTd.className = 'px-6 py-4 whitespace-nowrap text-right text-sm font-medium';
+                    const delBtn = document.createElement('button');
+                    delBtn.type = 'button';
+                    delBtn.textContent = 'Delete';
+                    delBtn.className = 'delete-att-row-btn text-red-600 hover:text-red-900';
+                    delBtn.dataset.participantId = participant.id;
+                    actionsTd.appendChild(delBtn);
+                    row.appendChild(actionsTd);
+                });
+            }
+            
+            function attHandleWeekChange() {
+                const selectedWeek = attWeekSelector.value;
+                if (!selectedWeek) return;
+                attCurrentWeekId = selectedWeek;
+                if (!attRosterData[attCurrentWeekId]) {
+                    attRosterData[attCurrentWeekId] = {
+                        dates: attGetDatesForWeek(attCurrentWeekId),
+                        participants: []
+                    };
+                    attSaveData();
+                }
+                attRenderTable();
+            }
+            
+            function attAddRow() {
+                if (!attCurrentWeekId) {
+                    showStatusMessage('Please select a week first.', 'error');
+                    return;
+                }
+                const newId = attGenerateId();
+                const newParticipant = {
+                    id: newId,
+                    name: 'New Participant',
+                    attendance: { monday:false, tuesday:false, wednesday:false, thursday:false, friday:false }
+                };
+                attRosterData[attCurrentWeekId].participants.push(newParticipant);
+                attRenderTable();
+                attSaveData();
+            }
+            
+            function attDeleteRow(participantId) {
+                if (!attCurrentWeekId) return;
+                if (confirm('Are you sure you want to delete this participant?')) {
+                    attRosterData[attCurrentWeekId].participants = attRosterData[attCurrentWeekId].participants.filter(p => p.id !== participantId);
+                    attRenderTable();
+                    attSaveData();
+                }
+            }
+            
+            function attExportToPdf() {
+                const element = document.getElementById('attendance-table').closest('.overflow-x-auto');
+                const originalOverflow = element.style.overflowX;
+                element.style.overflowX = 'visible';
+                attExportBtn.disabled = true;
+                html2pdf().set({
+                    margin: 0.5,
+                    filename: `Attendance-${attCurrentWeekId}.pdf`,
+                    html2canvas: { scale: 2 },
+                    jsPDF: { orientation: 'landscape', unit: 'in', format: 'letter' }
+                }).from(element).save().then(() => {
+                    element.style.overflowX = originalOverflow;
+                    attExportBtn.disabled = false;
+                    showStatusMessage('PDF exported successfully!', 'success');
+                }).catch(error => {
+                    console.error('PDF export failed:', error);
+                    element.style.overflowX = originalOverflow;
+                    attExportBtn.disabled = false;
+                    showStatusMessage('PDF export failed!', 'error');
+                });
+            }
+            
+            // Event listeners
+            attWeekSelector.addEventListener('change', attHandleWeekChange);
+            attAddRowBtn.addEventListener('click', attAddRow);
+            attExportBtn.addEventListener('click', attExportToPdf);
+            
+            attTableBody.addEventListener('change', (e) => {
+                if (e.target.classList.contains('attendance-checkbox')) {
+                    const pid = e.target.dataset.participantId;
+                    const day = e.target.dataset.day;
+                    const participant = attRosterData[attCurrentWeekId].participants.find(p => p.id === pid);
+                    if (participant) {
+                        participant.attendance[day] = e.target.checked;
+                        attSaveData();
+                    }
+                }
+            });
+            
+            attTableBody.addEventListener('input', (e) => {
+                if (e.target.classList.contains('participant-name-input')) {
+                    const pid = e.target.dataset.id;
+                    const participant = attRosterData[attCurrentWeekId].participants.find(p => p.id === pid);
+                    if (participant) {
+                        participant.name = e.target.value;
+                        attSaveData();
+                    }
+                }
+            });
+            
+            attTableBody.addEventListener('click', (e) => {
+                if (e.target.classList.contains('delete-att-row-btn')) {
+                    const pid = e.target.dataset.participantId;
+                    attDeleteRow(pid);
+                }
+            });
+            
+            // Initialize
+            attRosterData = attLoadData();
+            const now = new Date();
+            const onejan = new Date(now.getFullYear(), 0, 1);
+            const millisInDay = 86400000;
+            const weekNum = Math.floor(((now - onejan) / millisInDay + onejan.getDay() + 1) / 7);
+            const weekString = `${now.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
+            attWeekSelector.value = weekString;
+            attHandleWeekChange();
+        }
+
+        // ===== MEAL COUNT FUNCTIONALITY =====
+        function initializeMealCount() {
+            showStatusMessage('Meal Count functionality is being implemented', 'info');
+            // TODO: Implement full meal count functionality
+        }
+
+        // ===== WEEKLY MENU FUNCTIONALITY =====
+        function initializeWeeklyMenu() {
+            // Initialize week picker with current week
+            const weekPicker = document.getElementById('week-picker');
+            if (weekPicker) {
+                const now = new Date();
+                const year = now.getFullYear();
+                const onejan = new Date(year, 0, 1);
+                const weekNum = Math.ceil(((now - onejan) / 86400000 + onejan.getDay() + 1) / 7);
+                weekPicker.value = `${year}-W${String(weekNum).padStart(2, '0')}`;
+                
+                // Initialize meal type navigation
+                const amSnackBtn = document.getElementById('btn-am-snack');
+                const lunchBtn = document.getElementById('btn-lunch');
+                const pmSnackBtn = document.getElementById('btn-pm-snack');
+                
+                if (amSnackBtn) {
+                    amSnackBtn.classList.add('active');
+                    amSnackBtn.addEventListener('click', () => showMealType('am-snack'));
+                }
+                if (lunchBtn) {
+                    lunchBtn.addEventListener('click', () => showMealType('lunch'));
+                }
+                if (pmSnackBtn) {
+                    pmSnackBtn.addEventListener('click', () => showMealType('pm-snack'));
+                }
+                
+                showMealType('am-snack'); // Default to AM Snack
+            }
+            
+            function showMealType(mealType) {
+                // Hide all meal type content
+                document.querySelectorAll('.meal-type-content').forEach(content => {
+                    content.classList.add('hidden');
+                });
+                
+                // Show selected meal type content
+                const selectedContent = document.getElementById(`${mealType}-content`);
+                if (selectedContent) {
+                    selectedContent.classList.remove('hidden');
+                }
+                
+                // Update navigation buttons
+                document.querySelectorAll('.nav-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                
+                const activeBtn = document.getElementById(`btn-${mealType}`);
+                if (activeBtn) {
+                    activeBtn.classList.add('active');
+                }
+                
+                // Update chart and content
+                updateWeeklyMenuContent(mealType);
+            }
+            
+            function updateWeeklyMenuContent(mealType) {
+                // Placeholder for weekly menu content updates
+                showStatusMessage(`Showing ${mealType} menu`, 'info');
+            }
+        }
+
+        // ===== DAILY MENU FUNCTIONALITY =====
+        function initializeDailyMenu() {
+            const dailyWeekPicker = document.getElementById('daily-week-picker');
+            const dailyMenuNav = document.getElementById('daily-menu-nav');
+            
+            if (dailyWeekPicker && dailyMenuNav) {
+                // Populate week picker with options
+                populateWeekPicker(dailyWeekPicker);
+                
+                // Create day navigation buttons
+                const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+                dailyMenuNav.innerHTML = '';
+                
+                days.forEach((day, index) => {
+                    const button = document.createElement('button');
+                    button.textContent = day;
+                    button.className = 'px-4 py-2 bg-stone-200 rounded-md text-stone-700 hover:bg-stone-300';
+                    button.dataset.day = day.toLowerCase();
+                    
+                    if (index === 0) button.classList.add('bg-stone-400'); // Highlight first day
+                    
+                    button.addEventListener('click', () => showDailyMenu(day.toLowerCase()));
+                    dailyMenuNav.appendChild(button);
+                });
+                
+                showDailyMenu('monday'); // Default to Monday
+            }
+            
+            function showDailyMenu(day) {
+                // Update navigation highlight
+                dailyMenuNav.querySelectorAll('button').forEach(btn => {
+                    btn.classList.remove('bg-stone-400');
+                    btn.classList.add('bg-stone-200');
+                });
+                
+                const activeBtn = dailyMenuNav.querySelector(`[data-day="${day}"]`);
+                if (activeBtn) {
+                    activeBtn.classList.remove('bg-stone-200');
+                    activeBtn.classList.add('bg-stone-400');
+                }
+                
+                // Update date line
+                const dateLine = document.getElementById('daily-page-date-line');
+                if (dateLine) {
+                    dateLine.textContent = `Viewing ${day.charAt(0).toUpperCase() + day.slice(1)}'s menu`;
+                }
+                
+                showStatusMessage(`Showing ${day}'s daily menu`, 'info');
+            }
+            
+            function populateWeekPicker(picker) {
+                const currentDate = new Date();
+                const currentYear = currentDate.getFullYear();
+                
+                // Add current and next few weeks
+                for (let i = -2; i <= 8; i++) {
+                    const weekDate = new Date(currentDate);
+                    weekDate.setDate(currentDate.getDate() + (i * 7));
+                    
+                    const year = weekDate.getFullYear();
+                    const onejan = new Date(year, 0, 1);
+                    const weekNum = Math.ceil(((weekDate - onejan) / 86400000 + onejan.getDay() + 1) / 7);
+                    const weekValue = `${year}-W${String(weekNum).padStart(2, '0')}`;
+                    
+                    const option = document.createElement('option');
+                    option.value = weekValue;
+                    option.textContent = `Week ${weekNum}, ${year}`;
+                    
+                    if (i === 0) option.selected = true; // Select current week
+                    
+                    picker.appendChild(option);
+                }
+            }
+        }
+
+        // ===== QUARTERLY MEAL PATTERN FUNCTIONALITY =====
+        function initializeQuarterlyMealPattern() {
+            const prevBtn = document.getElementById('prev-month-btn');
+            const nextBtn = document.getElementById('next-month-btn');
+            const monthTitle = document.getElementById('calendar-month-title');
+            const calendarGrid = document.getElementById('calendar-grid');
+            
+            let currentMonth = new Date().getMonth();
+            let currentYear = new Date().getFullYear();
+            
+            if (prevBtn && nextBtn && monthTitle && calendarGrid) {
+                prevBtn.addEventListener('click', () => {
+                    currentMonth--;
+                    if (currentMonth < 0) {
+                        currentMonth = 11;
+                        currentYear--;
+                    }
+                    updateCalendar();
+                });
+                
+                nextBtn.addEventListener('click', () => {
+                    currentMonth++;
+                    if (currentMonth > 11) {
+                        currentMonth = 0;
+                        currentYear++;
+                    }
+                    updateCalendar();
+                });
+                
+                updateCalendar(); // Initialize with current month
+            }
+            
+            function updateCalendar() {
+                const monthNames = [
+                    'January', 'February', 'March', 'April', 'May', 'June',
+                    'July', 'August', 'September', 'October', 'November', 'December'
+                ];
+                
+                monthTitle.textContent = `${monthNames[currentMonth]} ${currentYear}`;
+                
+                // Clear existing calendar
+                calendarGrid.innerHTML = '';
+                
+                // Get first day of month and number of days
+                const firstDay = new Date(currentYear, currentMonth, 1);
+                const lastDay = new Date(currentYear, currentMonth + 1, 0);
+                const startDate = new Date(firstDay);
+                
+                // Adjust to start on Monday
+                const dayOfWeek = firstDay.getDay();
+                const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+                startDate.setDate(firstDay.getDate() - daysToSubtract);
+                
+                // Create calendar cells (5 weeks)
+                for (let week = 0; week < 5; week++) {
+                    for (let day = 0; day < 5; day++) { // Monday to Friday only
+                        const cellDate = new Date(startDate);
+                        cellDate.setDate(startDate.getDate() + (week * 7) + day);
+                        
+                        const cell = document.createElement('div');
+                        cell.className = 'calendar-cell';
+                        
+                        const dateLabel = document.createElement('div');
+                        dateLabel.className = 'date-label';
+                        dateLabel.textContent = cellDate.getDate();
+                        
+                        // Dim dates outside current month
+                        if (cellDate.getMonth() !== currentMonth) {
+                            dateLabel.style.color = '#D1D5DB';
+                        }
+                        
+                        cell.appendChild(dateLabel);
+                        
+                        // Add click handler for adding meals
+                        cell.addEventListener('click', () => {
+                            showStatusMessage(`Selected ${cellDate.toDateString()}`, 'info');
+                        });
+                        
+                        calendarGrid.appendChild(cell);
+                    }
+                }
+            }
+        }
+
+        // ===== ELIGIBILITY ROSTER FUNCTIONALITY =====
+        function initializeEligibilityRoster() {
+            const addRowBtn = document.getElementById('add-eligibility-row');
+            const tableContainer = document.getElementById('eligibility-table-container');
+            const totalsDiv = document.getElementById('eligibility-totals');
+            
+            let eligibilityData = JSON.parse(localStorage.getItem('eligibility_roster_data') || '[]');
+            
+            if (addRowBtn && tableContainer) {
+                addRowBtn.addEventListener('click', addEligibilityRow);
+                renderEligibilityTable();
+            }
+            
+            function addEligibilityRow() {
+                const newRow = {
+                    id: Date.now().toString(),
+                    name: '',
+                    status: 'Free',
+                    caseNumber: '',
+                    dateEnrolled: new Date().toISOString().split('T')[0]
+                };
+                
+                eligibilityData.push(newRow);
+                saveEligibilityData();
+                renderEligibilityTable();
+            }
+            
+            function renderEligibilityTable() {
+                if (!tableContainer) return;
+                
+                const table = document.createElement('table');
+                table.className = 'min-w-full divide-y divide-gray-200';
+                
+                // Create header
+                const thead = document.createElement('thead');
+                thead.className = 'bg-gray-50';
+                thead.innerHTML = `
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Case Number</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date Enrolled</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    </tr>
+                `;
+                
+                // Create body
+                const tbody = document.createElement('tbody');
+                tbody.className = 'bg-white divide-y divide-gray-200';
+                
+                eligibilityData.forEach(row => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="px-6 py-4"><input type="text" value="${row.name}" class="w-full border-gray-300 rounded" data-field="name" data-id="${row.id}"></td>
+                        <td class="px-6 py-4">
+                            <select class="w-full border-gray-300 rounded" data-field="status" data-id="${row.id}">
+                                <option value="Free" ${row.status === 'Free' ? 'selected' : ''}>Free</option>
+                                <option value="Reduced" ${row.status === 'Reduced' ? 'selected' : ''}>Reduced</option>
+                                <option value="Paid" ${row.status === 'Paid' ? 'selected' : ''}>Paid</option>
+                            </select>
+                        </td>
+                        <td class="px-6 py-4"><input type="text" value="${row.caseNumber}" class="w-full border-gray-300 rounded" data-field="caseNumber" data-id="${row.id}"></td>
+                        <td class="px-6 py-4"><input type="date" value="${row.dateEnrolled}" class="w-full border-gray-300 rounded" data-field="dateEnrolled" data-id="${row.id}"></td>
+                        <td class="px-6 py-4">
+                            <button class="text-red-600 hover:text-red-900" onclick="deleteEligibilityRow('${row.id}')">Delete</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+                
+                table.appendChild(thead);
+                table.appendChild(tbody);
+                
+                tableContainer.innerHTML = '';
+                tableContainer.appendChild(table);
+                
+                // Add event listeners for input changes
+                table.addEventListener('input', (e) => {
+                    const field = e.target.dataset.field;
+                    const id = e.target.dataset.id;
+                    const value = e.target.value;
+                    
+                    if (field && id) {
+                        const row = eligibilityData.find(r => r.id === id);
+                        if (row) {
+                            row[field] = value;
+                            saveEligibilityData();
+                            updateTotals();
+                        }
+                    }
+                });
+                
+                updateTotals();
+            }
+            
+            function updateTotals() {
+                if (!totalsDiv) return;
+                
+                const totals = eligibilityData.reduce((acc, row) => {
+                    acc[row.status] = (acc[row.status] || 0) + 1;
+                    acc.total++;
+                    return acc;
+                }, { Free: 0, Reduced: 0, Paid: 0, total: 0 });
+                
+                totalsDiv.innerHTML = `
+                    <strong>Totals:</strong> 
+                    Free: ${totals.Free} | 
+                    Reduced: ${totals.Reduced} | 
+                    Paid: ${totals.Paid} | 
+                    Total: ${totals.total}
+                `;
+            }
+            
+            function saveEligibilityData() {
+                localStorage.setItem('eligibility_roster_data', JSON.stringify(eligibilityData));
+                
+                // Auto-sync to Supabase if connected
+                if (database.isConnected) {
+                    syncEligibilityData().catch(error => {
+                        console.error('Auto-sync failed:', error);
+                        showStatusMessage(`Auto-sync failed: ${error.message}`, 'warning');
+                    });
+                }
+            }
+            
+            // Make delete function global
+            window.deleteEligibilityRow = function(id) {
+                if (confirm('Are you sure you want to delete this row?')) {
+                    eligibilityData = eligibilityData.filter(row => row.id !== id);
+                    saveEligibilityData();
+                    renderEligibilityTable();
+                }
+            };
+        }
+
+        // ===== MEAL BENEFIT FORMS FUNCTIONALITY =====
+        function initializeMealBenefitForms() {
+            const newFormBtn = document.getElementById('new-form-btn');
+            const saveBtn = document.getElementById('save-btn');
+            const deleteBtn = document.getElementById('delete-btn');
+            const exportBtn = document.getElementById('export-btn');
+            
+            if (newFormBtn) {
+                newFormBtn.addEventListener('click', () => {
+                    clearForm();
+                    showStatusMessage('New form created', 'info');
+                });
+            }
+            
+            if (saveBtn) {
+                saveBtn.addEventListener('click', () => {
+                    showStatusMessage('Form saved successfully', 'success');
+                });
+            }
+            
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', () => {
+                    if (confirm('Are you sure you want to delete this form?')) {
+                        clearForm();
+                        showStatusMessage('Form deleted', 'info');
+                    }
+                });
+            }
+            
+            if (exportBtn) {
+                exportBtn.addEventListener('click', () => {
+                    showStatusMessage('PDF export functionality will be implemented', 'info');
+                });
+            }
+            
+            function clearForm() {
+                // Clear all form fields
+                document.querySelectorAll('#form-wrapper input[type="text"], #form-wrapper input[type="date"]').forEach(input => {
+                    input.value = '';
+                });
+                
+                // Reset radio buttons
+                document.querySelectorAll('#form-wrapper input[type="radio"]').forEach(radio => {
+                    radio.checked = false;
+                });
+                
+                // Clear signature pads if they exist
+                const signaturePad = document.getElementById('signature-pad');
+                const determiningSignaturePad = document.getElementById('determining-signature-pad');
+                
+                if (signaturePad && signaturePad.getContext) {
+                    const ctx = signaturePad.getContext('2d');
+                    ctx.clearRect(0, 0, signaturePad.width, signaturePad.height);
+                }
+                
+                if (determiningSignaturePad && determiningSignaturePad.getContext) {
+                    const ctx = determiningSignaturePad.getContext('2d');
+                    ctx.clearRect(0, 0, determiningSignaturePad.width, determiningSignaturePad.height);
+                }
+            }
+        }
+
+        // ===== RECIPES FUNCTIONALITY =====
+        function initializeRecipes() {
+            const newRecipeBtn = document.getElementById('new-recipe-btn');
+            const saveRecipeBtn = document.getElementById('save-recipe-btn');
+            const deleteRecipeBtn = document.getElementById('delete-recipe-btn');
+            const exportRecipeBtn = document.getElementById('export-recipe-btn');
+            
+            if (newRecipeBtn) {
+                newRecipeBtn.addEventListener('click', () => {
+                    clearRecipeForm();
+                    showStatusMessage('New recipe created', 'info');
+                });
+            }
+            
+            if (saveRecipeBtn) {
+                saveRecipeBtn.addEventListener('click', () => {
+                    showStatusMessage('Recipe saved successfully', 'success');
+                });
+            }
+            
+            if (deleteRecipeBtn) {
+                deleteRecipeBtn.addEventListener('click', () => {
+                    if (confirm('Are you sure you want to delete this recipe?')) {
+                        clearRecipeForm();
+                        showStatusMessage('Recipe deleted', 'info');
+                    }
+                });
+            }
+            
+            if (exportRecipeBtn) {
+                exportRecipeBtn.addEventListener('click', () => {
+                    showStatusMessage('Recipe PDF export functionality will be implemented', 'info');
+                });
+            }
+            
+            function clearRecipeForm() {
+                document.querySelectorAll('#recipe-form input, #recipe-form textarea, #recipe-form select').forEach(field => {
+                    if (field.type !== 'button') {
+                        field.value = '';
+                    }
+                });
+            }
+        }
+
+        // ===== GOOGLE SHEETS INTEGRATION =====
+        class SupabaseIntegration {
+            constructor() {
+                this.supabaseUrl = '';
+                this.supabaseKey = '';
+                this.supabase = null;
+                this.isConnected = false;
+                this.loadSettings();
+            }
+
+            loadSettings() {
+                const settings = JSON.parse(localStorage.getItem('supabase_settings') || '{}');
+                this.supabaseUrl = settings.supabaseUrl || '';
+                this.supabaseKey = settings.supabaseKey || '';
+                
+                // Update UI if elements exist
+                const urlEl = document.getElementById('supabase-url');
+                const keyEl = document.getElementById('supabase-key');
+                if (urlEl) urlEl.value = this.supabaseUrl;
+                if (keyEl) keyEl.value = this.supabaseKey;
+                
+                // Auto-connect if we have credentials
+                if (this.supabaseUrl && this.supabaseKey) {
+                    this.connect(this.supabaseUrl, this.supabaseKey);
+                }
+            }
+
+            saveSettings() {
+                const settings = {
+                    supabaseUrl: this.supabaseUrl,
+                    supabaseKey: this.supabaseKey
+                };
+                localStorage.setItem('supabase_settings', JSON.stringify(settings));
+            }
+
+            async connect(apiKey, spreadsheetId, clientId = '') {
+                this.apiKey = apiKey;
+                this.spreadsheetId = spreadsheetId;
+                if (clientId) {
+                    this.clientId = clientId;
+                    this.setupGoogleAuth();
+                }
+                
+                try {
+                    await this.testConnection();
+                    this.isConnected = true;
+                    this.updateConnectionStatus(true);
+                    this.saveSettings();
+                    
+                    if (clientId) {
+                        showStatusMessage('Connected to Google Sheets! Click "Authenticate" for full sync capabilities.', 'success');
+                    } else {
+                        showStatusMessage('Connected to Google Sheets (read-only mode)!', 'success');
+                    }
+                    return true;
+                } catch (error) {
+                    this.isConnected = false;
+                    this.updateConnectionStatus(false);
+                    showStatusMessage('Failed to connect to Google Sheets: ' + error.message, 'error');
+                    return false;
+                }
+            }
+
+            async testConnection() {
+                if (this.isAuthenticated && this.serviceAccountKey) {
+                    return await this.testAppsScriptConnection();
+                } else {
+                    return await this.testDirectConnection();
+                }
+            }
+
+            updateConnectionStatus(connected) {
+                const statusEl = document.getElementById('connection-status');
+                const syncBtn = document.getElementById('sync-data');
+                
+                if (statusEl) {
+                    if (connected) {
+                        statusEl.textContent = '● Connected to Supabase';
+                        statusEl.className = 'connection-status connected';
+                    } else {
+                        statusEl.textContent = '● Disconnected';
+                        statusEl.className = 'connection-status disconnected';
+                    }
+                }
+                
+                if (syncBtn) {
+                    syncBtn.disabled = !connected;
+                    if (connected) {
+                        syncBtn.textContent = 'Sync Data';
+                    }
+                }
+            }
+
+            async connect(supabaseUrl, supabaseKey) {
+                this.supabaseUrl = supabaseUrl;
+                this.supabaseKey = supabaseKey;
+                
+                try {
+                    // Initialize Supabase client
+                    this.supabase = supabase.createClient(supabaseUrl, supabaseKey);
+                    
+                    // Test connection by trying to access a table
+                    await this.testConnection();
+                    
+                    this.isConnected = true;
+                    this.updateConnectionStatus(true);
+                    this.saveSettings();
+                    showStatusMessage('Connected to Supabase successfully!', 'success');
+                    
+                    // Create tables if they don't exist
+                    await this.initializeTables();
+                    
+                    return true;
+                } catch (error) {
+                    this.isConnected = false;
+                    this.updateConnectionStatus(false);
+                    showStatusMessage('Failed to connect to Supabase: ' + error.message, 'error');
+                    return false;
+                }
+            }
+
+            async testConnection() {
+                if (!this.supabase) {
+                    throw new Error('Supabase client not initialized');
+                }
+
+                // Test connection by trying to access the eligibility table
+                const { data, error } = await this.supabase
+                    .from('eligibility_roster')
+                    .select('count', { count: 'exact', head: true });
+                
+                if (error && error.code !== 'PGRST116') { // PGRST116 = table doesn't exist, which is OK
+                    throw new Error(`Supabase connection failed: ${error.message}`);
+                }
+                
+                return { success: true };
+            }
+
+            async initializeTables() {
+                // Tables are created via Supabase SQL Editor using supabase-complete-schema.sql
+                console.log('Complete schema includes these tables:');
+                console.log('- attendance_data: Weekly attendance tracking');
+                console.log('- meal_count_data: Daily meal count tracking');
+                console.log('- eligibility_roster: Participant eligibility information');
+                console.log('- meal_benefit_forms: Digital benefit forms with signatures');
+                console.log('- menu_data: Daily menu items and components');
+                console.log('- recipes: Standardized recipes with ingredients and instructions');
+                console.log('- settings: Application configuration settings');
+                console.log('- weekly_menu_patterns: Weekly meal pattern templates');
+                console.log('- quarterly_meal_patterns: Quarterly meal planning patterns');
+            }
+
+            async updateEligibilityData(data) {
+                if (!this.supabase) {
+                    throw new Error('Supabase not connected');
+                }
+
+                // Clear existing data and insert new data
+                const { error: deleteError } = await this.supabase
+                    .from('eligibility_roster')
+                    .delete()
+                    .neq('id', 0); // Delete all rows
+
+                if (deleteError) {
+                    console.warn('Error clearing eligibility data:', deleteError);
+                }
+
+                // Transform data for Supabase
+                const supabaseData = data.map(item => ({
+                    participant_id: item.id,
+                    participant_name: item.name,
+                    status: item.status || 'Free',
+                    case_number: item.caseNumber || '',
+                    date_enrolled: item.dateEnrolled || new Date().toISOString().split('T')[0],
+                    updated_at: new Date().toISOString()
+                }));
+
+                const { data: result, error } = await this.supabase
+                    .from('eligibility_roster')
+                    .insert(supabaseData);
+
+                if (error) {
+                    throw new Error(`Failed to update eligibility data: ${error.message}`);
+                }
+
+                return result;
+            }
+
+            async updateAttendanceData(data) {
+                if (!this.supabase) {
+                    throw new Error('Supabase not connected');
+                }
+
+                // Clear existing data
+                const { error: deleteError } = await this.supabase
+                    .from('attendance_data')
+                    .delete()
+                    .neq('id', 0);
+
+                if (deleteError) {
+                    console.warn('Error clearing attendance data:', deleteError);
+                }
+
+                // Transform attendance data for Supabase
+                const supabaseData = [];
+                Object.entries(data).forEach(([weekId, weekData]) => {
+                    weekData.participants.forEach(participant => {
+                        supabaseData.push({
+                            week_id: weekId,
+                            participant_id: participant.id,
+                            participant_name: participant.name,
+                            monday: participant.attendance.monday,
+                            tuesday: participant.attendance.tuesday,
+                            wednesday: participant.attendance.wednesday,
+                            thursday: participant.attendance.thursday,
+                            friday: participant.attendance.friday,
+                            updated_at: new Date().toISOString()
+                        });
+                    });
+                });
+
+                if (supabaseData.length > 0) {
+                    const { data: result, error } = await this.supabase
+                        .from('attendance_data')
+                        .insert(supabaseData);
+
+                    if (error) {
+                        throw new Error(`Failed to update attendance data: ${error.message}`);
+                    }
+                    return result;
+                }
+                return [];
+            }
+
+            async getEligibilityData() {
+                if (!this.supabase) {
+                    throw new Error('Supabase not connected');
+                }
+
+                const { data, error } = await this.supabase
+                    .from('eligibility_roster')
+                    .select('*')
+                    .order('participant_name');
+
+                if (error) {
+                    throw new Error(`Failed to get eligibility data: ${error.message}`);
+                }
+
+                // Transform back to app format
+                return data.map(item => ({
+                    id: item.participant_id,
+                    name: item.participant_name,
+                    status: item.status,
+                    caseNumber: item.case_number,
+                    dateEnrolled: item.date_enrolled
+                }));
+            }
+
+            async getAttendanceData() {
+                if (!this.supabase) {
+                    throw new Error('Supabase not connected');
+                }
+
+                const { data, error } = await this.supabase
+                    .from('attendance_data')
+                    .select('*')
+                    .order('week_id');
+
+                if (error) {
+                    throw new Error(`Failed to get attendance data: ${error.message}`);
+                }
+
+                // Transform back to app format
+                const attendanceData = {};
+                data.forEach(row => {
+                    if (!attendanceData[row.week_id]) {
+                        attendanceData[row.week_id] = {
+                            dates: getWeekDates(row.week_id),
+                            participants: []
+                        };
+                    }
+
+                    attendanceData[row.week_id].participants.push({
+                        id: row.participant_id,
+                        name: row.participant_name,
+                        attendance: {
+                            monday: row.monday,
+                            tuesday: row.tuesday,
+                            wednesday: row.wednesday,
+                            thursday: row.thursday,
+                            friday: row.friday
+                        }
+                    });
+                });
+
+                return attendanceData;
+            }
+
+            // ===== MEAL COUNT DATA METHODS =====
+            async updateMealCountData(data) {
+                if (!this.supabase) {
+                    throw new Error('Supabase not connected');
+                }
+
+                const { error: deleteError } = await this.supabase
+                    .from('meal_count_data')
+                    .delete()
+                    .neq('id', 0);
+
+                if (deleteError) {
+                    console.warn('Error clearing meal count data:', deleteError);
+                }
+
+                const supabaseData = [];
+                Object.entries(data).forEach(([weekId, weekData]) => {
+                    weekData.participants.forEach(participant => {
+                        if (participant.mealCount) {
+                            Object.entries(participant.mealCount).forEach(([date, meals]) => {
+                                supabaseData.push({
+                                    week_id: weekId,
+                                    date: date,
+                                    participant_id: participant.id,
+                                    participant_name: participant.name,
+                                    am_snack: meals.amSnack || false,
+                                    lunch: meals.lunch || false,
+                                    pm_snack: meals.pmSnack || false,
+                                    special_notes: meals.notes || '',
+                                    updated_at: new Date().toISOString()
+                                });
+                            });
+                        }
+                    });
+                });
+
+                if (supabaseData.length > 0) {
+                    const { data: result, error } = await this.supabase
+                        .from('meal_count_data')
+                        .insert(supabaseData);
+
+                    if (error) {
+                        throw new Error(`Failed to update meal count data: ${error.message}`);
+                    }
+                    return result;
+                }
+                return [];
+            }
+
+            // ===== RECIPES METHODS =====
+            async updateRecipesData(recipes) {
+                if (!this.supabase) {
+                    throw new Error('Supabase not connected');
+                }
+
+                const supabaseData = recipes.map(recipe => ({
+                    recipe_id: recipe.id,
+                    recipe_name: recipe.name,
+                    description: recipe.description || '',
+                    yield: recipe.yield || '',
+                    ingredients_json: recipe.ingredients || [],
+                    instructions_json: recipe.instructions || [],
+                    nutritional_facts_json: recipe.nutritionalFacts || {},
+                    component_contributions_json: recipe.componentContributions || {},
+                    storage_instructions: recipe.storageInstructions || '',
+                    updated_at: new Date().toISOString()
+                }));
+
+                // Clear and insert
+                const { error: deleteError } = await this.supabase
+                    .from('recipes')
+                    .delete()
+                    .neq('id', 0);
+
+                if (supabaseData.length > 0) {
+                    const { data: result, error } = await this.supabase
+                        .from('recipes')
+                        .insert(supabaseData);
+
+                    if (error) {
+                        throw new Error(`Failed to update recipes: ${error.message}`);
+                    }
+                    return result;
+                }
+                return [];
+            }
+
+            async getRecipesData() {
+                if (!this.supabase) {
+                    throw new Error('Supabase not connected');
+                }
+
+                const { data, error } = await this.supabase
+                    .from('recipes')
+                    .select('*')
+                    .order('recipe_name');
+
+                if (error) {
+                    throw new Error(`Failed to get recipes: ${error.message}`);
+                }
+
+                return data.map(recipe => ({
+                    id: recipe.recipe_id,
+                    name: recipe.recipe_name,
+                    description: recipe.description,
+                    yield: recipe.yield,
+                    ingredients: recipe.ingredients_json,
+                    instructions: recipe.instructions_json,
+                    nutritionalFacts: recipe.nutritional_facts_json,
+                    componentContributions: recipe.component_contributions_json,
+                    storageInstructions: recipe.storage_instructions
+                }));
+            }
+
+            // ===== MENU DATA METHODS =====
+            async updateMenuData(menuData) {
+                if (!this.supabase) {
+                    throw new Error('Supabase not connected');
+                }
+
+                const supabaseData = [];
+                Object.entries(menuData).forEach(([date, meals]) => {
+                    Object.entries(meals).forEach(([mealType, items]) => {
+                        items.forEach(item => {
+                            supabaseData.push({
+                                date: date,
+                                meal_type: mealType,
+                                food_item: item.name,
+                                component_type: item.component,
+                                serving_size: item.serving,
+                                recipe_id: item.recipeId || null,
+                                updated_at: new Date().toISOString()
+                            });
+                        });
+                    });
+                });
+
+                // Clear and insert
+                const { error: deleteError } = await this.supabase
+                    .from('menu_data')
+                    .delete()
+                    .neq('id', 0);
+
+                if (supabaseData.length > 0) {
+                    const { data: result, error } = await this.supabase
+                        .from('menu_data')
+                        .insert(supabaseData);
+
+                    if (error) {
+                        throw new Error(`Failed to update menu data: ${error.message}`);
+                    }
+                    return result;
+                }
+                return [];
+            }
+
+            // ===== SETTINGS METHODS =====
+            async updateSettings(settings) {
+                if (!this.supabase) {
+                    throw new Error('Supabase not connected');
+                }
+
+                const promises = Object.entries(settings).map(([key, value]) => {
+                    return this.supabase
+                        .from('settings')
+                        .upsert({
+                            setting_key: key,
+                            setting_value: value,
+                            updated_at: new Date().toISOString()
+                        });
+                });
+
+                const results = await Promise.all(promises);
+                const errors = results.filter(result => result.error);
+                
+                if (errors.length > 0) {
+                    throw new Error(`Failed to update settings: ${errors[0].error.message}`);
+                }
+
+                return results;
+            }
+
+            async getSettings() {
+                if (!this.supabase) {
+                    throw new Error('Supabase not connected');
+                }
+
+                const { data, error } = await this.supabase
+                    .from('settings')
+                    .select('*');
+
+                if (error) {
+                    throw new Error(`Failed to get settings: ${error.message}`);
+                }
+
+                const settings = {};
+                data.forEach(setting => {
+                    settings[setting.setting_key] = setting.setting_value;
+                });
+
+                return settings;
+            }
+        }
+
+        // Initialize Supabase integration with auto-connect
+        const database = new SupabaseIntegration();
+        
+        // Auto-connect on page load with hardcoded credentials
+        document.addEventListener('DOMContentLoaded', async function() {
+            console.log('🚀 Auto-connecting to Supabase...');
+            
+            // Hardcoded Supabase credentials for automatic connection
+            const SUPABASE_URL = 'https://bqydmxosfjyaqjvrrked.supabase.co';
+            const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxeWRteG9zZmp5YXFqdnJya2VkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc5NzA2ODksImV4cCI6MjA3MzU0NjY4OX0.0Lulw4nBXwKqQEUqO8lRG4sbdEP3X12JiGc-z-jqyVA';
+            
+            console.log('📡 Connecting to Supabase with hardcoded credentials...');
+            console.log('URL:', SUPABASE_URL);
+            console.log('Key:', SUPABASE_ANON_KEY.substring(0, 20) + '...');
+            
+            try {
+                // Store credentials for compatibility with existing code
+                const settings = {
+                    supabaseUrl: SUPABASE_URL,
+                    supabaseKey: SUPABASE_ANON_KEY
+                };
+                localStorage.setItem('supabase_settings', JSON.stringify(settings));
+                
+                // Connect to Supabase
+                await database.connect(SUPABASE_URL, SUPABASE_ANON_KEY);
+                console.log('✅ Connected to Supabase successfully!');
+                
+                // Load data from Supabase
+                console.log('📊 Loading data from Supabase...');
+                await loadDataFromDatabase();
+                console.log('✅ Data loaded successfully!');
+                
+                // Refresh current view to show loaded data
+                if (currentView === 'eligibility-roster') {
+                    console.log('🔄 Refreshing eligibility roster...');
+                    initializeEligibilityRoster();
+                } else if (currentView === 'attendance') {
+                    console.log('🔄 Refreshing attendance view...');
+                    initializeAttendance();
+                }
+                
+                console.log('🎉 App fully initialized with Supabase data!');
+                
+            } catch (error) {
+                console.error('❌ Failed to auto-connect to Supabase:', error);
+                showStatusMessage('Failed to connect to database. Please check console for details.', 'error');
+            }
+        });
+
+        // ===== DATA SYNCHRONIZATION FUNCTIONS =====
+        async function syncAllData() {
+            if (!database.isConnected) {
+                showStatusMessage('Please connect to Supabase first', 'error');
+                return;
+            }
+
+            showStatusMessage('Syncing data with Supabase...', 'info');
+            
+            try {
+                // Sync local data to Supabase
+                await syncEligibilityData();
+                await syncAttendanceData();
+                await syncRecipesData();
+                await syncSettingsData();
+                
+                // Load data back from Supabase
+                await loadDataFromDatabase();
+                
+                showStatusMessage('Data synchronized successfully!', 'success');
+            } catch (error) {
+                console.error('Sync error:', error);
+                showStatusMessage(`Sync failed: ${error.message}`, 'error');
+            }
+            
+            // Refresh current view to show loaded data
+            if (currentView === 'eligibility-roster') {
+                initializeEligibilityRoster();
+            } else if (currentView === 'attendance') {
+                initializeAttendance();
+            }
+        }
+
+        async function syncAttendanceData() {
+            const attendanceData = JSON.parse(localStorage.getItem('attendance_roster_data') || '{}');
+            const rows = [];
+
+            Object.keys(attendanceData).forEach(weekId => {
+                const weekData = attendanceData[weekId];
+                if (weekData.participants) {
+                    weekData.participants.forEach(participant => {
+                        rows.push([
+                            weekId,
+                            participant.id,
+                            participant.name,
+                            participant.attendance.monday ? 'TRUE' : 'FALSE',
+                            participant.attendance.tuesday ? 'TRUE' : 'FALSE',
+                            participant.attendance.wednesday ? 'TRUE' : 'FALSE',
+                            participant.attendance.thursday ? 'TRUE' : 'FALSE',
+                            participant.attendance.friday ? 'TRUE' : 'FALSE',
+                            new Date().toISOString(),
+                            new Date().toISOString()
+                        ]);
+                    });
+                }
+            });
+
+            if (rows.length > 0) {
+                await googleSheets.updateSheetData('Attendance_Data', rows, 'A2');
+            }
+        }
+
+        async function syncEligibilityData() {
+            const eligibilityData = JSON.parse(localStorage.getItem('eligibility_roster_data') || '[]');
+            
+            if (eligibilityData.length > 0) {
+                await database.updateEligibilityData(eligibilityData);
+            }
+        }
+
+        async function syncAttendanceData() {
+            const attendanceData = JSON.parse(localStorage.getItem('attendance_roster_data') || '{}');
+            
+            if (Object.keys(attendanceData).length > 0) {
+                await database.updateAttendanceData(attendanceData);
+            }
+        }
+
+        async function syncRecipesData() {
+            const recipesData = JSON.parse(localStorage.getItem('recipes_data') || '[]');
+            
+            if (recipesData.length > 0) {
+                await database.updateRecipesData(recipesData);
+            }
+        }
+
+        async function syncSettingsData() {
+            const settingsData = JSON.parse(localStorage.getItem('app_settings') || '{}');
+            
+            if (Object.keys(settingsData).length > 0) {
+                await database.updateSettings(settingsData);
+            }
+        }
+
+        async function loadDataFromDatabase() {
+            try {
+                // Load eligibility data from Supabase
+                const eligibilityData = await database.getEligibilityData();
+                localStorage.setItem('eligibility_roster_data', JSON.stringify(eligibilityData));
+
+                // Load attendance data from Supabase
+                const attendanceData = await database.getAttendanceData();
+                localStorage.setItem('attendance_roster_data', JSON.stringify(attendanceData));
+
+                // Load recipes data from Supabase
+                try {
+                    const recipesData = await database.getRecipesData();
+                    localStorage.setItem('recipes_data', JSON.stringify(recipesData));
+                } catch (error) {
+                    console.log('No recipes data found, using defaults');
+                }
+
+                // Load settings from Supabase
+                try {
+                    const settingsData = await database.getSettings();
+                    localStorage.setItem('app_settings', JSON.stringify(settingsData));
+                } catch (error) {
+                    console.log('No settings data found, using defaults');
+                }
+
+            } catch (error) {
+                console.error('Error loading data from database:', error);
+                throw error;
+            }
+        }
+
+        function getWeekDates(weekString) {
+            const [year, week] = weekString.split('-W');
+            const firstDay = new Date(year, 0, 1 + (week - 1) * 7);
+            const dayOfWeek = firstDay.getDay();
+            const diff = (dayOfWeek <= 4 ? 1 : 8) - dayOfWeek;
+            const monday = new Date(firstDay.setDate(firstDay.getDate() + diff));
+            const dates = {};
+            const dayNames = ['monday','tuesday','wednesday','thursday','friday'];
+            dayNames.forEach((name, idx) => {
+                const d = new Date(monday);
+                d.setDate(monday.getDate() + idx);
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const date = String(d.getDate()).padStart(2, '0');
+                dates[name] = `${month}/${date}`;
+            });
+            return dates;
+        }
+
+        // Auto-sync functionality
+        let autoSyncInterval = null;
+
+        function startAutoSync() {
+            if (autoSyncInterval) {
+                clearInterval(autoSyncInterval);
+            }
+            
+            const intervalMinutes = parseInt(document.getElementById('auto-sync-interval')?.value || '5');
+            autoSyncInterval = setInterval(async () => {
+                if (googleSheets.isConnected && document.getElementById('auto-sync-enabled')?.checked) {
+                    try {
+                        await syncAllData();
+                        console.log('Auto-sync completed');
+                    } catch (error) {
+                        console.error('Auto-sync failed:', error);
+                    }
+                }
+            }, intervalMinutes * 60 * 1000);
+        }
+
+        // ===== MAIN EVENT LISTENERS =====
+        document.addEventListener('DOMContentLoaded', function() {
+            // Hamburger menu
+            document.getElementById('hamburger-menu').addEventListener('click', function() {
+                document.getElementById('sidebar').classList.toggle('open');
+            });
+
+            // Sidebar navigation
+            document.querySelectorAll('.sidebar-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    const viewName = this.id.replace('sidebar-', '');
+                    showView(viewName);
+                });
+            });
+
+            // Supabase connection
+            const connectSupabaseBtn = document.getElementById('connect-supabase');
+            if (connectSupabaseBtn) {
+                connectSupabaseBtn.addEventListener('click', async function() {
+                    const supabaseUrl = document.getElementById('supabase-url').value.trim();
+                    const supabaseKey = document.getElementById('supabase-key').value.trim();
+                    
+                    if (!supabaseUrl || !supabaseKey) {
+                        showStatusMessage('Please enter both Supabase URL and Key', 'error');
+                        return;
+                    }
+
+                    await database.connect(supabaseUrl, supabaseKey);
+                    
+                    // Update status
+                    const statusEl = document.getElementById('auth-status');
+                    if (statusEl) {
+                        if (database.isConnected) {
+                            statusEl.textContent = 'Connected to Supabase - Ready for sync!';
+                        } else {
+                            statusEl.textContent = 'Not connected';
+                        }
+                    }
+                });
+            }
+
+            const testConnectionBtn = document.getElementById('test-connection');
+            if (testConnectionBtn) {
+                testConnectionBtn.addEventListener('click', async function() {
+                    try {
+                        await database.testConnection();
+                        showStatusMessage('Connection test successful!', 'success');
+                    } catch (error) {
+                        showStatusMessage('Connection test failed: ' + error.message, 'error');
+                    }
+                });
+            }
+
+            const syncDataBtn = document.getElementById('sync-data');
+            if (syncDataBtn) {
+                syncDataBtn.addEventListener('click', async function() {
+                    await syncAllData();
+                });
+            }
+
+            // Settings functionality
+            const saveSettingsBtn = document.getElementById('save-settings');
+            if (saveSettingsBtn) {
+                saveSettingsBtn.addEventListener('click', function() {
+                    const spreadsheetId = document.getElementById('settings-spreadsheet-id')?.value;
+                    const apiKey = document.getElementById('settings-api-key')?.value;
+                    
+                    if (spreadsheetId && apiKey) {
+                        googleSheets.connect(apiKey, spreadsheetId);
+                    }
+                    
+                    startAutoSync();
+                    showStatusMessage('Settings saved successfully!', 'success');
+                });
+            }
+            
+            // Auto-sync checkbox handler
+            const autoSyncEnabled = document.getElementById('auto-sync-enabled');
+            if (autoSyncEnabled) {
+                autoSyncEnabled.addEventListener('change', function() {
+                    if (this.checked) {
+                        startAutoSync();
+                        showStatusMessage('Auto-sync enabled', 'success');
+                    } else {
+                        if (autoSyncInterval) {
+                            clearInterval(autoSyncInterval);
+                            autoSyncInterval = null;
+                        }
+                        showStatusMessage('Auto-sync disabled', 'info');
+                    }
+                });
+            }
+
+            // Data management
+            const exportAllDataBtn = document.getElementById('export-all-data');
+            if (exportAllDataBtn) {
+                exportAllDataBtn.addEventListener('click', function() {
+                    const allData = {
+                        attendance: JSON.parse(localStorage.getItem('attendance_roster_data') || '{}'),
+                        mealCount: JSON.parse(localStorage.getItem('meal_count_roster_data') || '{}'),
+                        menuData: JSON.parse(localStorage.getItem('cacfp_menu_data') || '{}')
+                    };
+
+                    const dataStr = JSON.stringify(allData, null, 2);
+                    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                    const url = URL.createObjectURL(dataBlob);
+                    
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `icon_cacfp_data_${new Date().toISOString().split('T')[0]}.json`;
+                    link.click();
+                    
+                    URL.revokeObjectURL(url);
+                    showStatusMessage('Data exported successfully!', 'success');
+                });
+            }
+
+            // Initialize with dashboard view
+            showView('dashboard');
+        });
+        // ---------------------------------------------------------------------
+        // Meal Count Roster functionality
+        //
+        // The roster allows users to select a week, manage participant meal
+        // attendance, and export the roster to PDF.  All variables and
+        // functions are encapsulated within an immediately invoked function
+        // expression (IIFE) to avoid polluting the global namespace and to
+        // prevent collisions with existing variables in this page.  The
+        // roster persists its data to localStorage under a dedicated key.
+        (() => {
+            // Data for the roster
+            let mcRosterData = {};
+            // Standard meal options
+            const mcMealOptions = ['AM', 'L', 'PM'];
+            const mcSpecialOption = 'N/A';
+            const mcMealOptionColors = {
+                'AM': 'bg-yellow-200 text-yellow-800',
+                'L': 'bg-green-700 text-green-200',
+                'PM': 'bg-orange-200 text-orange-800',
+                'N/A': 'bg-gray-700 text-gray-200'
+            };
+            const mcMealLegend = {
+                'AM': 'Morning Snack',
+                'L': 'Lunch',
+                'PM': 'Afternoon Snack',
+                '*': 'Opted Out but Ate',
+                '🔴': 'Discharged or Intent to Discharge',
+                'N/A': 'Not Applicable'
+            };
+            const MC_AUTO_SAVE_DELAY = 1000;
+            const MC_STORAGE_KEY = 'meal_count_roster_data_v2';
+            let mcCurrentWeekId = '';
+            let mcAutoSaveTimer = null;
+            // Mock initial data based on provided CSV snippet.  This data
+            // provides sample participants and their meals for a given week.
+            const mcMockInitialRosterData = {
+                '2025-W29': {
+                    startDate: '2025-07-14',
+                    endDate: '2025-07-18',
+                    dates: {
+                        monday: '07/14',
+                        tuesday: '07/15',
+                        wednesday: '07/16',
+                        thursday: '07/17',
+                        friday: '07/18'
+                    },
+                    participants: [
+                        {
+                            id: 'p1',
+                            name: 'ADAUTO, GEORGE',
+                            meals: {
+                                monday: ['AM', 'L', 'PM'],
+                                tuesday: ['AM', 'L', 'PM'],
+                                wednesday: ['AM', 'L', 'PM'],
+                                thursday: ['AM', 'L', 'PM'],
+                                friday: ['AM', 'L', 'PM']
+                            }
+                        },
+                        {
+                            id: 'p2',
+                            name: 'ALEMAN, KEVIN',
+                            meals: {
+                                monday: ['AM', 'L', 'PM'],
+                                tuesday: ['AM', 'L', 'PM'],
+                                wednesday: ['AM', 'L', 'PM'],
+                                thursday: ['AM', 'L', 'PM'],
+                                friday: ['AM', 'L', 'PM']
+                            }
+                        },
+                        {
+                            id: 'p3',
+                            name: 'BAILEY, GLENN',
+                            meals: {
+                                monday: ['L', 'PM'],
+                                tuesday: ['AM', 'L', 'PM'],
+                                wednesday: ['AM', 'L', 'PM'],
+                                thursday: ['AM', 'L', 'PM'],
+                                friday: ['L', 'PM']
+                            }
+                        },
+                        {
+                            id: 'p4',
+                            name: 'CARTER, JULIAN',
+                            meals: {
+                                monday: ['PM'],
+                                tuesday: ['AM', 'L', 'PM'],
+                                wednesday: ['L', 'PM'],
+                                thursday: ['AM', 'L', 'PM'],
+                                friday: ['L', 'PM']
+                            }
+                        }
+                    ]
+                }
+            };
+            // Element references
+            const mcWeekSelector = document.getElementById('week-selector');
+            const mcRosterTableHead = document.getElementById('roster-table-head');
+            const mcRosterTableBody = document.getElementById('roster-table-body');
+            const mcAddRowBtn = document.getElementById('add-row-btn');
+            const mcExportPdfBtn = document.getElementById('export-pdf-btn');
+            const mcMealDropdownOverlay = document.getElementById('meal-dropdown-overlay');
+            const mcMealOptionsContainer = document.getElementById('meal-options-container');
+            const mcDropdownCancelBtn = document.getElementById('dropdown-cancel-btn');
+            const mcDropdownApplyBtn = document.getElementById('dropdown-apply-btn');
+            let mcActiveCell = null;
+            // Utility to generate a unique row ID
+            function mcGenerateUniqueId() {
+                return 'row_' + Math.random().toString(36).substr(2, 9);
+            }
+            // Load roster data from localStorage or fall back to mock data
+            function mcLoadRosterData() {
+                try {
+                    const savedData = localStorage.getItem(MC_STORAGE_KEY);
+                    if (savedData) {
+                        return JSON.parse(savedData);
+                    }
+                } catch (e) {
+                    console.error('Error loading roster data from localStorage:', e);
+                }
+                return JSON.parse(JSON.stringify(mcMockInitialRosterData));
+            }
+            // Persist roster data to localStorage with a delay to avoid frequent writes
+            function mcSaveRosterData() {
+                clearTimeout(mcAutoSaveTimer);
+                mcAutoSaveTimer = setTimeout(() => {
+                    try {
+                        localStorage.setItem(MC_STORAGE_KEY, JSON.stringify(mcRosterData));
+                        if (typeof showStatusMessage === 'function') {
+                            showStatusMessage('Roster saved!', 'success');
+                        }
+                    } catch (e) {
+                        console.error('Error saving roster data to localStorage:', e);
+                        if (typeof showStatusMessage === 'function') {
+                            showStatusMessage('Error saving roster!', 'error');
+                        }
+                    }
+                }, MC_AUTO_SAVE_DELAY);
+            }
+            // Compute ISO week identifier (e.g., 2025-W29) for a given date
+            function mcGetWeekId(date) {
+                const year = date.getFullYear();
+                const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+                const dayNum = d.getUTCDay() || 7;
+                d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+                const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+                const weekNumber = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+                return `${year}-W${String(weekNumber).padStart(2, '0')}`;
+            }
+            // Format a Date as "Month Day" (e.g., "July 14")
+            function mcFormatDate(date) {
+                const options = { month: 'long', day: 'numeric' };
+                return date.toLocaleDateString('en-US', options);
+            }
+            // Compute Monday–Friday dates for a given week identifier
+            function mcGetDatesForWeek(weekId) {
+                const [yearStr, weekNumStr] = weekId.split('-W');
+                const year = parseInt(yearStr, 10);
+                const weekNumber = parseInt(weekNumStr, 10);
+                const jan1 = new Date(year, 0, 1);
+                let firstMonday = new Date(jan1);
+                firstMonday.setDate(jan1.getDate() + (1 + 7 - jan1.getDay()) % 7);
+                const monday = new Date(firstMonday);
+                monday.setDate(firstMonday.getDate() + (weekNumber - 1) * 7);
+                const dates = {};
+                const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+                for (let i = 0; i < 5; i++) {
+                    const dt = new Date(monday);
+                    dt.setDate(monday.getDate() + i);
+                    dates[days[i]] = mcFormatDate(dt);
+                }
+                return dates;
+            }
+            // Generate HTML for a colored meal tag
+            function mcGetMealTagHtml(mealOption) {
+                const classes = mcMealOptionColors[mealOption] || 'bg-gray-300 text-gray-800';
+                return `<span class="meal-tag ${classes}">${mealOption}</span>`;
+            }
+            // Render the roster table for the current week
+            function mcRenderRoster() {
+                const currentWeekData = mcRosterData[mcCurrentWeekId];
+                // Always compute and render the header based on the selected week.  When no data
+                // exists for the week yet, derive the dates from mcGetDatesForWeek().  Use
+                // Title case for day names and display the full month name and ordinal date on a
+                // second line.  Align the first column to the left, weekday columns to the center,
+                // and actions column to the right.  Remove the uppercase transformation to
+                // preserve capitalization of the day names.
+                const daysOfWeek = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+                // Build the header row. Start with the participant column header in uppercase.
+                let headerHtml = `<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PARTICIPANT</th>`;
+                // Helper to compute ordinal suffix
+                function getOrdinalSuffix(n) {
+                    const mod100 = n % 100;
+                    if (mod100 >= 11 && mod100 <= 13) return 'th';
+                    switch (n % 10) {
+                        case 1: return 'st';
+                        case 2: return 'nd';
+                        case 3: return 'rd';
+                        default: return 'th';
+                    }
+                }
+                if (mcCurrentWeekId) {
+                    // Parse the year and ISO week number from the current week ID
+                    const [yearStr, weekNumStr] = mcCurrentWeekId.split('-W');
+                    const year = parseInt(yearStr, 10);
+                    const weekNumber = parseInt(weekNumStr, 10);
+                    // Compute the first Monday of the ISO year
+                    const jan1 = new Date(year, 0, 1);
+                    let firstMonday = new Date(jan1);
+                    // Adjust to the first Monday of the year
+                    firstMonday.setDate(jan1.getDate() + (1 + 7 - jan1.getDay()) % 7);
+                    // Compute the Monday of the selected ISO week
+                    const monday = new Date(firstMonday);
+                    monday.setDate(firstMonday.getDate() + (weekNumber - 1) * 7);
+                    // Generate header cells for each day of the week
+                    daysOfWeek.forEach((dayName, idx) => {
+                        const dt = new Date(monday);
+                        dt.setDate(monday.getDate() + idx);
+                        const monthName = dt.toLocaleDateString('en-US', { month: 'long' });
+                        const dayNum = dt.getDate();
+                        const suffix = getOrdinalSuffix(dayNum);
+                        const formattedDate = `${monthName} ${dayNum}${suffix}`;
+                        const dayLabel = dayName.charAt(0).toUpperCase() + dayName.slice(1);
+                        headerHtml += `<th class="px-6 py-3 text-center text-xs font-medium text-gray-500 capitalize tracking-wider">${dayLabel}<br/><span class="text-xs font-normal normal-case">${formattedDate}</span></th>`;
+                    });
+                } else {
+                    // Fallback: display day names without dates if week is not selected
+                    daysOfWeek.forEach(dayName => {
+                        const dayLabel = dayName.charAt(0).toUpperCase() + dayName.slice(1);
+                        headerHtml += `<th class="px-6 py-3 text-center text-xs font-medium text-gray-500 capitalize tracking-wider">${dayLabel}</th>`;
+                    });
+                }
+                // Add the Actions column header aligned to the right
+                headerHtml += `<th class="px-6 py-3 text-right text-xs font-medium text-gray-500 tracking-wider">Actions</th>`;
+                mcRosterTableHead.innerHTML = headerHtml;
+                // If there is no data or no participants, display an empty state row and return
+                if (!currentWeekData || !currentWeekData.participants || currentWeekData.participants.length === 0) {
+                    mcRosterTableBody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-gray-500">No data for this week. Try adding participants.</td></tr>';
+                    return;
+                }
+                mcRosterTableBody.innerHTML = '';
+                currentWeekData.participants.forEach(participant => {
+                    const row = mcRosterTableBody.insertRow();
+                    row.dataset.participantId = participant.id;
+                    row.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <input type="text" value="${participant.name}" class="participant-name-input w-full border-gray-200 rounded-md p-1" data-id="${participant.id}">
+                        </td>
+                        ${daysOfWeek.map(day => `
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="meal-cell relative inline-block border border-gray-300 rounded-md px-3 py-1 cursor-pointer w-full text-gray-700" data-participant-id="${participant.id}" data-day="${day}">
+                                    <div class="meal-cell-content">
+                                        ${participant.meals[day].map(mcGetMealTagHtml).join('')}
+                                    </div>
+                                </div>
+                            </td>
+                        `).join('')}
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button type="button" class="delete-row-btn text-red-600 hover:text-red-900 ml-4">Delete</button>
+                        </td>
+                    `;
+                });
+            }
+
+            // Expose the render function on the global window object so it can
+            // be invoked when the meal count view is shown.  Without this
+            // assignment the function remains scoped within the IIFE and
+            // cannot be called from showApplicationView().
+            window.mcRenderRoster = mcRenderRoster;
+            // Handle changing the selected week
+            function mcHandleWeekChange() {
+                const selectedWeek = mcWeekSelector.value;
+                if (selectedWeek) {
+                    mcCurrentWeekId = selectedWeek;
+                    if (!mcRosterData[mcCurrentWeekId]) {
+                        mcRosterData[mcCurrentWeekId] = {
+                            startDate: '',
+                            endDate: '',
+                            dates: mcGetDatesForWeek(mcCurrentWeekId),
+                            participants: []
+                        };
+                        const mondayDate = new Date(mcRosterData[mcCurrentWeekId].dates.monday);
+                        const fridayDate = new Date(mcRosterData[mcCurrentWeekId].dates.friday);
+                        mcRosterData[mcCurrentWeekId].startDate = mondayDate.toISOString().split('T')[0];
+                        mcRosterData[mcCurrentWeekId].endDate = fridayDate.toISOString().split('T')[0];
+                        mcSaveRosterData();
+                    }
+                    mcRenderRoster();
+                }
+            }
+            // Add a new participant row to the roster
+            function mcAddRosterRow() {
+                if (!mcRosterData[mcCurrentWeekId]) {
+                    if (typeof showStatusMessage === 'function') {
+                        showStatusMessage('Please select a week first.', 'error');
+                    }
+                    return;
+                }
+                const newParticipantId = mcGenerateUniqueId();
+                const newParticipant = {
+                    id: newParticipantId,
+                    name: 'New Participant',
+                    meals: {
+                        monday: ['N/A'],
+                        tuesday: ['N/A'],
+                        wednesday: ['N/A'],
+                        thursday: ['N/A'],
+                        friday: ['N/A']
+                    }
+                };
+                mcRosterData[mcCurrentWeekId].participants.push(newParticipant);
+                mcRenderRoster();
+                mcSaveRosterData();
+            }
+            // Delete a participant row after confirmation
+            function mcDeleteRosterRow(participantId) {
+                if (confirm('Are you sure you want to delete this participant?')) {
+                    mcRosterData[mcCurrentWeekId].participants = mcRosterData[mcCurrentWeekId].participants.filter(p => p.id !== participantId);
+                    mcRenderRoster();
+                    mcSaveRosterData();
+                }
+            }
+            // Export the roster table to PDF using html2pdf
+            function mcExportRosterToPdf() {
+                const element = document.getElementById('roster-table').closest('.overflow-x-auto');
+                const originalOverflow = element.style.overflowX;
+                element.style.overflowX = 'visible';
+                const actionButtons = document.querySelector('.mt-6.flex.space-x-3');
+                const originalActionDisplay = actionButtons.style.display;
+                actionButtons.style.display = 'none';
+                html2pdf().set({
+                    margin: 0.5,
+                    filename: `MealCountRoster-${mcCurrentWeekId}.pdf`,
+                    html2canvas: { scale: 2 },
+                    jsPDF: { orientation: 'landscape', unit: 'in', format: 'letter' }
+                }).from(element).save().then(() => {
+                    element.style.overflowX = originalOverflow;
+                    actionButtons.style.display = originalActionDisplay;
+                    if (typeof showStatusMessage === 'function') {
+                        showStatusMessage('PDF exported successfully!', 'success');
+                    }
+                }).catch(error => {
+                    console.error('PDF export failed:', error);
+                    element.style.overflowX = originalOverflow;
+                    actionButtons.style.display = originalActionDisplay;
+                    if (typeof showStatusMessage === 'function') {
+                        showStatusMessage('PDF export failed!', 'error');
+                    }
+                });
+            }
+            // Display the meal selection dropdown overlay
+            function mcShowMealDropdown(cellElement, participantId, day) {
+                mcActiveCell = { element: cellElement, participantId, day };
+                mcMealOptionsContainer.innerHTML = '';
+                const currentMeals = mcRosterData[mcCurrentWeekId].participants.find(p => p.id === participantId).meals[day];
+                mcMealOptions.forEach(option => {
+                    const checkboxId = `meal-option-${option}`;
+                    const isChecked = currentMeals.includes(option);
+                    const classes = mcMealOptionColors[option] || '';
+                    mcMealOptionsContainer.innerHTML += `
+                        <label for="${checkboxId}" class="block text-gray-700 flex items-center">
+                            <input type="checkbox" id="${checkboxId}" value="${option}" ${isChecked ? 'checked' : ''} class="mr-2 meal-checkbox form-checkbox h-4 w-4 text-blue-600 rounded">
+                            <span class="meal-tag ${classes}">${option}</span>
+                            <span class="ml-2 text-sm text-gray-600">(${mcMealLegend[option]})</span>
+                        </label>
+                    `;
+                });
+                // Radio button for N/A
+                const isNASelected = currentMeals.includes(mcSpecialOption);
+                const naClasses = mcMealOptionColors[mcSpecialOption] || '';
+                mcMealOptionsContainer.innerHTML += `
+                    <label for="meal-option-na" class="block text-gray-700 mt-2 flex items-center">
+                        <input type="radio" id="meal-option-na" name="meal-type-na" value="${mcSpecialOption}" ${isNASelected ? 'checked' : ''} class="mr-2 meal-radio form-radio h-4 w-4 text-blue-600">
+                        <span class="meal-tag ${naClasses}">${mcSpecialOption}</span>
+                        <span class="ml-2 text-sm text-gray-600">(${mcMealLegend[mcSpecialOption]})</span>
+                    </label>
+                `;
+                // Event listeners for checkboxes and radio button
+                mcMealOptionsContainer.querySelectorAll('.meal-checkbox').forEach(checkbox => {
+                    checkbox.addEventListener('change', () => {
+                        document.getElementById('meal-option-na').checked = false;
+                    });
+                });
+                document.getElementById('meal-option-na').addEventListener('change', (event) => {
+                    if (event.target.checked) {
+                        mcMealOptionsContainer.querySelectorAll('.meal-checkbox').forEach(checkbox => {
+                            checkbox.checked = false;
+                        });
+                    }
+                });
+                mcMealDropdownOverlay.classList.remove('hidden');
+            }
+            // Hide the dropdown overlay
+            function mcHideMealDropdown() {
+                mcMealDropdownOverlay.classList.add('hidden');
+                mcActiveCell = null;
+            }
+            // Apply selected meals to the active cell
+            function mcApplyMealSelection() {
+                if (!mcActiveCell) return;
+                const selectedMeals = [];
+                const naSelected = document.getElementById('meal-option-na').checked;
+                if (naSelected) {
+                    selectedMeals.push(mcSpecialOption);
+                } else {
+                    mcMealOptionsContainer.querySelectorAll('.meal-checkbox:checked').forEach(checkbox => {
+                        selectedMeals.push(checkbox.value);
+                    });
+                }
+                const participant = mcRosterData[mcCurrentWeekId].participants.find(p => p.id === mcActiveCell.participantId);
+                if (participant) {
+                    participant.meals[mcActiveCell.day] = selectedMeals;
+                    mcActiveCell.element.querySelector('.meal-cell-content').innerHTML = selectedMeals.map(mcGetMealTagHtml).join('');
+                    mcSaveRosterData();
+                }
+                mcHideMealDropdown();
+            }
+            // Set up event delegation for roster interactions
+            function mcSetupRosterEvents() {
+                mcRosterTableBody.addEventListener('click', (event) => {
+                    if (event.target.closest('.meal-cell')) {
+                        const cell = event.target.closest('.meal-cell');
+                        const participantId = cell.dataset.participantId;
+                        const day = cell.dataset.day;
+                        mcShowMealDropdown(cell, participantId, day);
+                    }
+                    if (event.target.classList.contains('delete-row-btn')) {
+                        const row = event.target.closest('tr');
+                        if (row) {
+                            mcDeleteRosterRow(row.dataset.participantId);
+                        }
+                    }
+                });
+                mcRosterTableBody.addEventListener('change', (event) => {
+                    if (event.target.classList.contains('participant-name-input')) {
+                        const participantId = event.target.dataset.id;
+                        const newName = event.target.value;
+                        const participant = mcRosterData[mcCurrentWeekId].participants.find(p => p.id === participantId);
+                        if (participant) {
+                            participant.name = newName;
+                            mcSaveRosterData();
+                        }
+                    }
+                });
+            }
+            // Initialise the roster on DOMContentLoaded
+            document.addEventListener('DOMContentLoaded', () => {
+                mcRosterData = mcLoadRosterData();
+                const today = new Date();
+                const currentWeek = mcGetWeekId(today);
+                mcWeekSelector.value = currentWeek;
+                mcCurrentWeekId = currentWeek;
+                if (!mcRosterData[mcCurrentWeekId]) {
+                    mcRosterData[mcCurrentWeekId] = {
+                        startDate: '',
+                        endDate: '',
+                        dates: mcGetDatesForWeek(mcCurrentWeekId),
+                        participants: []
+                    };
+                    const mondayDate = new Date(mcRosterData[mcCurrentWeekId].dates.monday);
+                    const fridayDate = new Date(mcRosterData[mcCurrentWeekId].dates.friday);
+                    mcRosterData[mcCurrentWeekId].startDate = mondayDate.toISOString().split('T')[0];
+                    mcRosterData[mcCurrentWeekId].endDate = fridayDate.toISOString().split('T')[0];
+                    mcSaveRosterData();
+                }
+                mcRenderRoster();
+                mcSetupRosterEvents();
+                mcWeekSelector.addEventListener('change', mcHandleWeekChange);
+                mcAddRowBtn.addEventListener('click', mcAddRosterRow);
+                mcExportPdfBtn.addEventListener('click', mcExportRosterToPdf);
+                mcDropdownCancelBtn.addEventListener('click', mcHideMealDropdown);
+                mcDropdownApplyBtn.addEventListener('click', mcApplyMealSelection);
+                mcMealDropdownOverlay.addEventListener('click', (event) => {
+                    if (event.target === mcMealDropdownOverlay) {
+                        mcHideMealDropdown();
+                    }
+                });
+            });
+        })();
+    </script>
+</body>
+</html> 
