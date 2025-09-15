@@ -2804,8 +2804,54 @@
             }
         }
 
-        // Initialize Google Sheets integration
+        // Initialize Supabase integration with auto-connect
         const database = new SupabaseIntegration();
+        
+        // Auto-connect on page load with hardcoded credentials
+        document.addEventListener('DOMContentLoaded', async function() {
+            console.log('🚀 Auto-connecting to Supabase...');
+            
+            // Hardcoded Supabase credentials for automatic connection
+            const SUPABASE_URL = 'https://bqydmxosfjyaqjvrrked.supabase.co';
+            const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxeWRteG9zZmp5YXFqdnJya2VkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc5NzA2ODksImV4cCI6MjA3MzU0NjY4OX0.0Lulw4nBXwKqQEUqO8lRG4sbdEP3X12JiGc-z-jqyVA';
+            
+            console.log('📡 Connecting to Supabase with hardcoded credentials...');
+            console.log('URL:', SUPABASE_URL);
+            console.log('Key:', SUPABASE_ANON_KEY.substring(0, 20) + '...');
+            
+            try {
+                // Store credentials for compatibility with existing code
+                const settings = {
+                    supabaseUrl: SUPABASE_URL,
+                    supabaseKey: SUPABASE_ANON_KEY
+                };
+                localStorage.setItem('supabase_settings', JSON.stringify(settings));
+                
+                // Connect to Supabase
+                await database.connect(SUPABASE_URL, SUPABASE_ANON_KEY);
+                console.log('✅ Connected to Supabase successfully!');
+                
+                // Load data from Supabase
+                console.log('📊 Loading data from Supabase...');
+                await loadDataFromDatabase();
+                console.log('✅ Data loaded successfully!');
+                
+                // Refresh current view to show loaded data
+                if (currentView === 'eligibility-roster') {
+                    console.log('🔄 Refreshing eligibility roster...');
+                    initializeEligibilityRoster();
+                } else if (currentView === 'attendance') {
+                    console.log('🔄 Refreshing attendance view...');
+                    initializeAttendance();
+                }
+                
+                console.log('🎉 App fully initialized with Supabase data!');
+                
+            } catch (error) {
+                console.error('❌ Failed to auto-connect to Supabase:', error);
+                showStatusMessage('Failed to connect to database. Please check console for details.', 'error');
+            }
+        });
 
         // ===== DATA SYNCHRONIZATION FUNCTIONS =====
         async function syncAllData() {
