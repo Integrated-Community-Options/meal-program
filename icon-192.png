@@ -1,0 +1,6 @@
+<svg width="192" height="192" xmlns="http://www.w3.org/2000/svg">
+  <rect width="192" height="192" fill="#C2410C" rx="24"/>
+  <text x="96" y="120" font-family="Arial, sans-serif" font-size="36" font-weight="bold" text-anchor="middle" fill="white">ICON</text>
+  <circle cx="96" cy="60" r="20" fill="white"/>
+  <path d="M76 60 L96 80 L116 60" stroke="white" stroke-width="3" fill="none"/>
+</svg> 
