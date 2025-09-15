@@ -837,7 +837,9 @@
                 <p class="text-lg text-stone-600 mt-2">An interactive guide to the weekly meal plan.</p>
                 <div class="flex flex-col sm:flex-row justify-center items-center mt-4 space-y-2 sm:space-y-0 sm:space-x-2">
                     <label for="week-picker" class="font-medium text-stone-600">Choose a week:</label>
-                    <input type="week" id="week-picker" class="border border-stone-300 rounded px-2 py-1 w-full sm:w-40" />
+                    <select id="week-picker" class="border border-stone-300 rounded px-2 py-1 w-full sm:w-40">
+                        <option value="">Select a week...</option>
+                    </select>
                 </div>
             </header>
 
@@ -2836,6 +2838,9 @@
                 await loadDataFromDatabase();
                 console.log('✅ Data loaded successfully!');
                 
+                // Initialize week picker with user-friendly options
+                initializeWeekPicker();
+                
                 // Refresh current view to show loaded data
                 if (currentView === 'eligibility-roster') {
                     console.log('🔄 Refreshing eligibility roster...');
@@ -2852,6 +2857,110 @@
                 showStatusMessage('Failed to connect to database. Please check console for details.', 'error');
             }
         });
+
+        // Initialize week picker with user-friendly date ranges
+        function initializeWeekPicker() {
+            const weekPicker = document.getElementById('week-picker');
+            if (!weekPicker) return;
+
+            console.log('📅 Initializing week picker...');
+
+            // Generate weeks for the current year (you can adjust this range)
+            const currentDate = new Date();
+            const currentYear = currentDate.getFullYear();
+            
+            // Start from January and go through December
+            const startDate = new Date(currentYear, 0, 1); // January 1st
+            const endDate = new Date(currentYear, 11, 31); // December 31st
+            
+            const weeks = [];
+            let currentWeekStart = getWeekStartDate(startDate);
+            
+            while (currentWeekStart <= endDate) {
+                const weekEnd = new Date(currentWeekStart);
+                weekEnd.setDate(weekEnd.getDate() + 6); // Add 6 days to get Sunday
+                
+                // Format as "August 11 - 17, 2025"
+                const startMonth = currentWeekStart.toLocaleDateString('en-US', { month: 'long' });
+                const startDay = currentWeekStart.getDate();
+                const endDay = weekEnd.getDate();
+                const endMonth = weekEnd.toLocaleDateString('en-US', { month: 'long' });
+                
+                let weekLabel;
+                if (startMonth === endMonth) {
+                    weekLabel = `${startMonth} ${startDay} - ${endDay}, ${currentYear}`;
+                } else {
+                    weekLabel = `${startMonth} ${startDay} - ${endMonth} ${endDay}, ${currentYear}`;
+                }
+                
+                // Use ISO week format as value for compatibility
+                const weekValue = currentWeekStart.toISOString().split('T')[0];
+                
+                weeks.push({
+                    value: weekValue,
+                    label: weekLabel,
+                    startDate: new Date(currentWeekStart)
+                });
+                
+                // Move to next week
+                currentWeekStart = new Date(currentWeekStart);
+                currentWeekStart.setDate(currentWeekStart.getDate() + 7);
+            }
+            
+            // Clear existing options except the first one
+            weekPicker.innerHTML = '<option value="">Select a week...</option>';
+            
+            // Add week options
+            weeks.forEach(week => {
+                const option = document.createElement('option');
+                option.value = week.value;
+                option.textContent = week.label;
+                weekPicker.appendChild(option);
+            });
+            
+            // Set default to current week if available
+            const todayWeekStart = getWeekStartDate(currentDate);
+            const currentWeekValue = todayWeekStart.toISOString().split('T')[0];
+            const matchingOption = weekPicker.querySelector(`option[value="${currentWeekValue}"]`);
+            if (matchingOption) {
+                weekPicker.value = currentWeekValue;
+                console.log('📅 Set week picker to current week:', matchingOption.textContent);
+            } else {
+                // If current week not found, try to find August 11-15 week for demo
+                const augustWeek = weeks.find(w => w.label.includes('August 11'));
+                if (augustWeek) {
+                    weekPicker.value = augustWeek.value;
+                    console.log('📅 Set week picker to August demo week:', augustWeek.label);
+                }
+            }
+
+            // Add event listener for week changes
+            weekPicker.addEventListener('change', function() {
+                const selectedWeek = this.options[this.selectedIndex];
+                if (selectedWeek.value) {
+                    console.log('📅 Week changed to:', selectedWeek.textContent);
+                    // You can add logic here to refresh the weekly menu view
+                    updateWeeklyMenuForSelectedWeek(selectedWeek.value);
+                }
+            });
+        }
+        
+        // Helper function to get the Monday of a given week
+        function getWeekStartDate(date) {
+            const result = new Date(date);
+            const day = result.getDay();
+            const diff = result.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+            result.setDate(diff);
+            result.setHours(0, 0, 0, 0);
+            return result;
+        }
+
+        // Function to update weekly menu when week selection changes
+        function updateWeeklyMenuForSelectedWeek(weekValue) {
+            console.log('🔄 Updating weekly menu for week starting:', weekValue);
+            // This function can be enhanced to filter menu data based on selected week
+            // For now, it will just log the selection
+        }
 
         // ===== DATA SYNCHRONIZATION FUNCTIONS =====
         async function syncAllData() {
