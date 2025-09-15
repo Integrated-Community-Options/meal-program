@@ -1172,7 +1172,9 @@
                 <!-- Week selector for attendance -->
                 <div class="flex items-center space-x-4 mb-6 justify-center">
                     <label for="attendance-week-selector" class="font-medium text-gray-700">Select Week:</label>
-                    <input type="week" id="attendance-week-selector" class="border border-gray-300 rounded-lg px-3 py-2 text-gray-800 focus:ring-blue-500 focus:border-blue-500">
+                    <select id="attendance-week-selector" class="border border-gray-300 rounded-lg px-3 py-2 text-gray-800 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Select a week...</option>
+                    </select>
                 </div>
                 <!-- Attendance table -->
                 <div class="overflow-x-auto bg-white rounded-xl shadow-lg p-4 border border-gray-200">
@@ -1198,7 +1200,9 @@
                 <h1 class="text-3xl font-bold mb-6 text-center">ICON CACFP Meal Count</h1>
                 <div class="flex items-center space-x-4 mb-6 justify-center">
                     <label for="week-selector" class="font-medium text-gray-700">Select Week:</label>
-                    <input type="week" id="week-selector" class="border border-gray-300 rounded-lg px-3 py-2 text-gray-800 focus:ring-blue-500 focus:border-blue-500">
+                    <select id="week-selector" class="border border-gray-300 rounded-lg px-3 py-2 text-gray-800 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Select a week...</option>
+                    </select>
                 </div>
                 <div class="overflow-x-auto bg-white rounded-xl shadow-lg p-4 border border-gray-200">
                     <table id="roster-table" class="min-w-full divide-y divide-gray-200">
@@ -1263,7 +1267,9 @@
                 <div class="flex flex-col sm:flex-row justify-center items-center mt-2 space-y-2 sm:space-y-0 sm:space-x-2">
                     <label for="daily-week-picker" class="font-medium text-stone-600">Choose a week:</label>
                     <!-- Use a <select> element for the daily week picker so options can be dynamically populated. -->
-                    <select id="daily-week-picker" class="border border-stone-300 rounded px-2 py-1 w-full sm:w-40"></select>
+                    <select id="daily-week-picker" class="border border-stone-300 rounded px-2 py-1 w-full sm:w-40">
+                        <option value="">Select a week...</option>
+                    </select>
                 </div>
             </header>
             <!-- Navigation between days of the week -->
@@ -1955,26 +1961,74 @@
             }
             
             function populateWeekPicker(picker) {
+                console.log('📅 Populating week picker:', picker.id);
+                
                 const currentDate = new Date();
                 const currentYear = currentDate.getFullYear();
                 
-                // Add current and next few weeks
-                for (let i = -2; i <= 8; i++) {
-                    const weekDate = new Date(currentDate);
-                    weekDate.setDate(currentDate.getDate() + (i * 7));
+                // Generate weeks for the current year
+                const startDate = new Date(currentYear, 0, 1); // January 1st
+                const endDate = new Date(currentYear, 11, 31); // December 31st
+                
+                const weeks = [];
+                let currentWeekStart = getWeekStartDate(startDate);
+                
+                while (currentWeekStart <= endDate) {
+                    const weekEnd = new Date(currentWeekStart);
+                    weekEnd.setDate(weekEnd.getDate() + 6); // Add 6 days to get Sunday
                     
-                    const year = weekDate.getFullYear();
-                    const onejan = new Date(year, 0, 1);
-                    const weekNum = Math.ceil(((weekDate - onejan) / 86400000 + onejan.getDay() + 1) / 7);
-                    const weekValue = `${year}-W${String(weekNum).padStart(2, '0')}`;
+                    // Format as "August 11 - 17, 2025"
+                    const startMonth = currentWeekStart.toLocaleDateString('en-US', { month: 'long' });
+                    const startDay = currentWeekStart.getDate();
+                    const endDay = weekEnd.getDate();
+                    const endMonth = weekEnd.toLocaleDateString('en-US', { month: 'long' });
                     
+                    let weekLabel;
+                    if (startMonth === endMonth) {
+                        weekLabel = `${startMonth} ${startDay} - ${endDay}, ${currentYear}`;
+                    } else {
+                        weekLabel = `${startMonth} ${startDay} - ${endMonth} ${endDay}, ${currentYear}`;
+                    }
+                    
+                    // Use ISO week format as value for compatibility
+                    const weekValue = currentWeekStart.toISOString().split('T')[0];
+                    
+                    weeks.push({
+                        value: weekValue,
+                        label: weekLabel,
+                        startDate: new Date(currentWeekStart)
+                    });
+                    
+                    // Move to next week
+                    currentWeekStart = new Date(currentWeekStart);
+                    currentWeekStart.setDate(currentWeekStart.getDate() + 7);
+                }
+                
+                // Clear existing options except the first one
+                picker.innerHTML = '<option value="">Select a week...</option>';
+                
+                // Add week options
+                weeks.forEach(week => {
                     const option = document.createElement('option');
-                    option.value = weekValue;
-                    option.textContent = `Week ${weekNum}, ${year}`;
-                    
-                    if (i === 0) option.selected = true; // Select current week
-                    
+                    option.value = week.value;
+                    option.textContent = week.label;
                     picker.appendChild(option);
+                });
+                
+                // Set default to current week if available
+                const todayWeekStart = getWeekStartDate(currentDate);
+                const currentWeekValue = todayWeekStart.toISOString().split('T')[0];
+                const matchingOption = picker.querySelector(`option[value="${currentWeekValue}"]`);
+                if (matchingOption) {
+                    picker.value = currentWeekValue;
+                    console.log('📅 Set picker to current week:', matchingOption.textContent);
+                } else {
+                    // If current week not found, try to find August 11-15 week for demo
+                    const augustWeek = weeks.find(w => w.label.includes('August 11'));
+                    if (augustWeek) {
+                        picker.value = augustWeek.value;
+                        console.log('📅 Set picker to August demo week:', augustWeek.label);
+                    }
                 }
             }
         }
@@ -2838,8 +2892,8 @@
                 await loadDataFromDatabase();
                 console.log('✅ Data loaded successfully!');
                 
-                // Initialize week picker with user-friendly options
-                initializeWeekPicker();
+                // Initialize all week pickers with user-friendly options
+                initializeAllWeekPickers();
                 
                 // Refresh current view to show loaded data
                 if (currentView === 'eligibility-roster') {
@@ -2858,12 +2912,29 @@
             }
         });
 
-        // Initialize week picker with user-friendly date ranges
-        function initializeWeekPicker() {
-            const weekPicker = document.getElementById('week-picker');
+        // Initialize all week pickers with user-friendly date ranges
+        function initializeAllWeekPickers() {
+            console.log('📅 Initializing all week pickers...');
+            
+            // Initialize each week picker
+            const weekPickerIds = ['week-picker', 'daily-week-picker', 'week-selector', 'attendance-week-selector'];
+            
+            weekPickerIds.forEach(pickerId => {
+                const picker = document.getElementById(pickerId);
+                if (picker) {
+                    console.log(`📅 Found picker: ${pickerId}`);
+                    populateWeekPickerStandard(picker);
+                } else {
+                    console.log(`⚠️ Picker not found: ${pickerId}`);
+                }
+            });
+        }
+
+        // Standard function to populate any week picker with user-friendly date ranges
+        function populateWeekPickerStandard(weekPicker) {
             if (!weekPicker) return;
 
-            console.log('📅 Initializing week picker...');
+            console.log('📅 Populating week picker:', weekPicker.id);
 
             // Generate weeks for the current year (you can adjust this range)
             const currentDate = new Date();
@@ -2934,15 +3005,18 @@
                 }
             }
 
-            // Add event listener for week changes
-            weekPicker.addEventListener('change', function() {
-                const selectedWeek = this.options[this.selectedIndex];
-                if (selectedWeek.value) {
-                    console.log('📅 Week changed to:', selectedWeek.textContent);
-                    // You can add logic here to refresh the weekly menu view
-                    updateWeeklyMenuForSelectedWeek(selectedWeek.value);
-                }
-            });
+            // Add event listener for week changes (avoid duplicate listeners)
+            if (!weekPicker.hasAttribute('data-listener-added')) {
+                weekPicker.addEventListener('change', function() {
+                    const selectedWeek = this.options[this.selectedIndex];
+                    if (selectedWeek.value) {
+                        console.log('📅 Week changed to:', selectedWeek.textContent, 'on picker:', this.id);
+                        // Handle different picker types
+                        updateWeeklyMenuForSelectedWeek(selectedWeek.value, this.id);
+                    }
+                });
+                weekPicker.setAttribute('data-listener-added', 'true');
+            }
         }
         
         // Helper function to get the Monday of a given week
@@ -2955,11 +3029,31 @@
             return result;
         }
 
-        // Function to update weekly menu when week selection changes
-        function updateWeeklyMenuForSelectedWeek(weekValue) {
-            console.log('🔄 Updating weekly menu for week starting:', weekValue);
-            // This function can be enhanced to filter menu data based on selected week
-            // For now, it will just log the selection
+        // Function to update views when week selection changes
+        function updateWeeklyMenuForSelectedWeek(weekValue, pickerId) {
+            console.log('🔄 Updating view for week starting:', weekValue, 'from picker:', pickerId);
+            
+            // Handle different picker types
+            switch(pickerId) {
+                case 'week-picker':
+                    console.log('📊 Updating weekly menu view');
+                    // Update weekly menu view logic here
+                    break;
+                case 'daily-week-picker':
+                    console.log('📅 Updating daily menu view');
+                    // Update daily menu view logic here
+                    break;
+                case 'week-selector':
+                    console.log('🍽️ Updating meal count view');
+                    // Update meal count roster logic here
+                    break;
+                case 'attendance-week-selector':
+                    console.log('✅ Updating attendance view');
+                    // Update attendance view logic here
+                    break;
+                default:
+                    console.log('📝 Generic week picker update');
+            }
         }
 
         // ===== DATA SYNCHRONIZATION FUNCTIONS =====
