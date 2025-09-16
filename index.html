@@ -2134,70 +2134,69 @@
             
             const currentDate = new Date();
             const currentYear = currentDate.getFullYear();
+            
+            // Generate weeks for the current year
+            const startDate = new Date(currentYear, 0, 1); // January 1st
+            const endDate = new Date(currentYear, 11, 31); // December 31st
+            
+            const weeks = [];
+            let currentWeekStart = getWeekStartDate(startDate);
+            
+            while (currentWeekStart <= endDate) {
+                const weekEnd = new Date(currentWeekStart);
+                weekEnd.setDate(weekEnd.getDate() + 6); // Add 6 days to get Sunday
                 
-                // Generate weeks for the current year
-                const startDate = new Date(currentYear, 0, 1); // January 1st
-                const endDate = new Date(currentYear, 11, 31); // December 31st
+                // Format as "August 11 - 17, 2025"
+                const startMonth = currentWeekStart.toLocaleDateString('en-US', { month: 'long' });
+                const startDay = currentWeekStart.getDate();
+                const endDay = weekEnd.getDate();
+                const endMonth = weekEnd.toLocaleDateString('en-US', { month: 'long' });
                 
-                const weeks = [];
-                let currentWeekStart = getWeekStartDate(startDate);
-                
-                while (currentWeekStart <= endDate) {
-                    const weekEnd = new Date(currentWeekStart);
-                    weekEnd.setDate(weekEnd.getDate() + 6); // Add 6 days to get Sunday
-                    
-                    // Format as "August 11 - 17, 2025"
-                    const startMonth = currentWeekStart.toLocaleDateString('en-US', { month: 'long' });
-                    const startDay = currentWeekStart.getDate();
-                    const endDay = weekEnd.getDate();
-                    const endMonth = weekEnd.toLocaleDateString('en-US', { month: 'long' });
-                    
-                    let weekLabel;
-                    if (startMonth === endMonth) {
-                        weekLabel = `${startMonth} ${startDay} - ${endDay}, ${currentYear}`;
-                    } else {
-                        weekLabel = `${startMonth} ${startDay} - ${endMonth} ${endDay}, ${currentYear}`;
-                    }
-                    
-                    // Use ISO week format as value for compatibility
-                    const weekValue = currentWeekStart.toISOString().split('T')[0];
-                    
-                    weeks.push({
-                        value: weekValue,
-                        label: weekLabel,
-                        startDate: new Date(currentWeekStart)
-                    });
-                    
-                    // Move to next week
-                    currentWeekStart = new Date(currentWeekStart);
-                    currentWeekStart.setDate(currentWeekStart.getDate() + 7);
+                let weekLabel;
+                if (startMonth === endMonth) {
+                    weekLabel = `${startMonth} ${startDay} - ${endDay}, ${currentYear}`;
+                } else {
+                    weekLabel = `${startMonth} ${startDay} - ${endMonth} ${endDay}, ${currentYear}`;
                 }
                 
-                // Clear existing options except the first one
-                picker.innerHTML = '<option value="">Select a week...</option>';
+                // Use ISO week format as value for compatibility
+                const weekValue = currentWeekStart.toISOString().split('T')[0];
                 
-                // Add week options
-                weeks.forEach(week => {
-                    const option = document.createElement('option');
-                    option.value = week.value;
-                    option.textContent = week.label;
-                    picker.appendChild(option);
+                weeks.push({
+                    value: weekValue,
+                    label: weekLabel,
+                    startDate: new Date(currentWeekStart)
                 });
                 
-                // Set default to current week if available
-                const todayWeekStart = getWeekStartDate(currentDate);
-                const currentWeekValue = todayWeekStart.toISOString().split('T')[0];
-                const matchingOption = picker.querySelector(`option[value="${currentWeekValue}"]`);
-                if (matchingOption) {
-                    picker.value = currentWeekValue;
-                    console.log('📅 Set picker to current week:', matchingOption.textContent);
-                } else {
-                    // If current week not found, try to find August 11-15 week for demo
-                    const augustWeek = weeks.find(w => w.label.includes('August 11'));
-                    if (augustWeek) {
-                        picker.value = augustWeek.value;
-                        console.log('📅 Set picker to August demo week:', augustWeek.label);
-                    }
+                // Move to next week
+                currentWeekStart = new Date(currentWeekStart);
+                currentWeekStart.setDate(currentWeekStart.getDate() + 7);
+            }
+            
+            // Clear existing options except the first one
+            picker.innerHTML = '<option value="">Select a week...</option>';
+            
+            // Add week options
+            weeks.forEach(week => {
+                const option = document.createElement('option');
+                option.value = week.value;
+                option.textContent = week.label;
+                picker.appendChild(option);
+            });
+            
+            // Set default to current week if available
+            const todayWeekStart = getWeekStartDate(currentDate);
+            const currentWeekValue = todayWeekStart.toISOString().split('T')[0];
+            const matchingOption = picker.querySelector(`option[value="${currentWeekValue}"]`);
+            if (matchingOption) {
+                picker.value = currentWeekValue;
+                console.log('📅 Set picker to current week:', matchingOption.textContent);
+            } else {
+                // If current week not found, try to find August 11-15 week for demo
+                const augustWeek = weeks.find(w => w.label.includes('August 11'));
+                if (augustWeek) {
+                    picker.value = augustWeek.value;
+                    console.log('📅 Set picker to August demo week:', augustWeek.label);
                 }
             }
         }
