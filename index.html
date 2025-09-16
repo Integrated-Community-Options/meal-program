@@ -2256,16 +2256,201 @@
         }
 
         // Show recipe modal for a food item
-        function showRecipeModal(foodItem) {
+        async function showRecipeModal(foodItem) {
             if (!foodItem || foodItem === 'N/A') {
                 return;
             }
             
             console.log('🍽️ Showing recipe for:', foodItem);
             
-            // For now, show a simple alert with recipe information
-            // In a full implementation, this would open a modal with detailed recipe
-            alert(`Recipe for: ${foodItem}\n\nThis feature will show detailed recipe information including:\n• Ingredients\n• Instructions\n• Nutritional facts\n• Component contributions\n\n(Recipe database integration coming soon)`);
+            // Show modal with loading state
+            const modal = document.getElementById('recipe-modal');
+            const title = document.getElementById('recipe-modal-title');
+            const body = document.getElementById('recipe-modal-body');
+            
+            title.textContent = `Recipe: ${foodItem}`;
+            body.innerHTML = `
+                <div class="flex justify-center items-center py-8">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-stone-600"></div>
+                    <span class="ml-3 text-stone-600">Loading recipe...</span>
+                </div>
+            `;
+            
+            modal.classList.remove('hidden');
+            modal.classList.add('visible');
+            
+            try {
+                // Fetch recipe from Supabase
+                const recipe = await database.getRecipeByFoodItem(foodItem);
+                
+                if (recipe) {
+                    // Display the recipe
+                    displayRecipe(recipe);
+                } else {
+                    // Show recipe not found message
+                    body.innerHTML = `
+                        <div class="text-center py-8">
+                            <div class="text-6xl mb-4">🍽️</div>
+                            <h3 class="text-xl font-semibold text-stone-800 mb-2">Recipe Not Found</h3>
+                            <p class="text-stone-600 mb-6">We don't have a recipe for "${foodItem}" yet.</p>
+                            <div class="bg-stone-50 rounded-lg p-4 text-left">
+                                <h4 class="font-semibold text-stone-700 mb-2">Would you like to add this recipe?</h4>
+                                <p class="text-sm text-stone-600">Contact your administrator to add recipes for:</p>
+                                <ul class="list-disc list-inside text-sm text-stone-600 mt-2">
+                                    <li>Ingredients and measurements</li>
+                                    <li>Step-by-step instructions</li>
+                                    <li>Nutritional information</li>
+                                    <li>Component contributions</li>
+                                </ul>
+                            </div>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading recipe:', error);
+                body.innerHTML = `
+                    <div class="text-center py-8">
+                        <div class="text-6xl mb-4">⚠️</div>
+                        <h3 class="text-xl font-semibold text-red-600 mb-2">Error Loading Recipe</h3>
+                        <p class="text-stone-600">There was an error loading the recipe. Please try again later.</p>
+                    </div>
+                `;
+            }
+        }
+
+        function displayRecipe(recipe) {
+            const body = document.getElementById('recipe-modal-body');
+            
+            // Parse JSON fields
+            const ingredients = recipe.ingredients_json || [];
+            const instructions = recipe.instructions_json || [];
+            const nutritionalFacts = recipe.nutritional_facts_json || {};
+            const componentContributions = recipe.component_contributions_json || {};
+            
+            // Build ingredients HTML
+            const ingredientsHtml = ingredients.length > 0 
+                ? ingredients.map(ing => `
+                    <li class="flex justify-between py-1">
+                        <span>${ing.item || ing.name}</span>
+                        <span class="font-medium">${ing.amount || ing.quantity}</span>
+                    </li>
+                `).join('')
+                : '<li class="text-stone-500 italic">No ingredients listed</li>';
+            
+            // Build instructions HTML
+            const instructionsHtml = instructions.length > 0
+                ? instructions.map((inst, index) => `
+                    <div class="flex gap-3 mb-3">
+                        <div class="flex-shrink-0 w-6 h-6 bg-stone-600 text-white rounded-full flex items-center justify-center text-sm font-semibold">
+                            ${inst.step || index + 1}
+                        </div>
+                        <p class="text-stone-700">${inst.instruction || inst}</p>
+                    </div>
+                `).join('')
+                : '<p class="text-stone-500 italic">No instructions provided</p>';
+            
+            // Build nutritional facts HTML
+            const nutritionHtml = Object.keys(nutritionalFacts).length > 0
+                ? Object.entries(nutritionalFacts).map(([key, value]) => `
+                    <div class="flex justify-between py-1 border-b border-stone-100">
+                        <span class="capitalize">${key.replace('_', ' ')}</span>
+                        <span class="font-medium">${value}</span>
+                    </div>
+                `).join('')
+                : '<p class="text-stone-500 italic">Nutritional information not available</p>';
+            
+            // Build component contributions HTML
+            const componentsHtml = Object.keys(componentContributions).length > 0
+                ? Object.entries(componentContributions).map(([key, value]) => `
+                    <div class="flex justify-between py-1">
+                        <span class="capitalize">${key.replace('_', ' ')}</span>
+                        <span class="font-medium">${value}</span>
+                    </div>
+                `).join('')
+                : '<p class="text-stone-500 italic">Component contribution data not available</p>';
+            
+            body.innerHTML = `
+                <div class="grid md:grid-cols-2 gap-6">
+                    <!-- Left Column -->
+                    <div>
+                        <!-- Recipe Info -->
+                        <div class="mb-6">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="text-2xl">🍽️</span>
+                                <h3 class="text-lg font-semibold text-stone-800">Recipe Information</h3>
+                            </div>
+                            ${recipe.description ? `<p class="text-stone-600 mb-2">${recipe.description}</p>` : ''}
+                            ${recipe.yield ? `<p class="text-sm text-stone-500"><strong>Yield:</strong> ${recipe.yield}</p>` : ''}
+                        </div>
+                        
+                        <!-- Ingredients -->
+                        <div class="mb-6">
+                            <div class="flex items-center gap-2 mb-3">
+                                <span class="text-xl">🥘</span>
+                                <h4 class="text-lg font-semibold text-stone-800">Ingredients</h4>
+                            </div>
+                            <ul class="space-y-1 bg-stone-50 rounded-lg p-4">
+                                ${ingredientsHtml}
+                            </ul>
+                        </div>
+                        
+                        <!-- Storage Instructions -->
+                        ${recipe.storage_instructions ? `
+                            <div class="mb-6">
+                                <div class="flex items-center gap-2 mb-3">
+                                    <span class="text-xl">❄️</span>
+                                    <h4 class="text-lg font-semibold text-stone-800">Storage Instructions</h4>
+                                </div>
+                                <div class="bg-blue-50 border-l-4 border-blue-400 p-4">
+                                    <p class="text-blue-800">${recipe.storage_instructions}</p>
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                    
+                    <!-- Right Column -->
+                    <div>
+                        <!-- Instructions -->
+                        <div class="mb-6">
+                            <div class="flex items-center gap-2 mb-3">
+                                <span class="text-xl">📝</span>
+                                <h4 class="text-lg font-semibold text-stone-800">Instructions</h4>
+                            </div>
+                            <div class="bg-stone-50 rounded-lg p-4">
+                                ${instructionsHtml}
+                            </div>
+                        </div>
+                        
+                        <!-- Nutritional Facts -->
+                        <div class="mb-6">
+                            <div class="flex items-center gap-2 mb-3">
+                                <span class="text-xl">📊</span>
+                                <h4 class="text-lg font-semibold text-stone-800">Nutritional Facts</h4>
+                            </div>
+                            <div class="bg-green-50 rounded-lg p-4">
+                                ${nutritionHtml}
+                            </div>
+                        </div>
+                        
+                        <!-- Component Contributions -->
+                        <div>
+                            <div class="flex items-center gap-2 mb-3">
+                                <span class="text-xl">🎯</span>
+                                <h4 class="text-lg font-semibold text-stone-800">CACFP Component Contributions</h4>
+                            </div>
+                            <div class="bg-orange-50 rounded-lg p-4">
+                                ${componentsHtml}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function closeRecipeModal() {
+            const modal = document.getElementById('recipe-modal');
+            modal.classList.remove('visible');
+            modal.classList.add('hidden');
         }
 
         function populateWeekPicker(picker) {
@@ -3117,6 +3302,36 @@
                     return result;
                 }
                 return [];
+            }
+
+            async getRecipeByFoodItem(foodItem) {
+                if (!this.supabase) {
+                    throw new Error('Supabase not connected');
+                }
+
+                // Search for recipe by exact match first, then by partial match
+                let { data, error } = await this.supabase
+                    .from('recipes')
+                    .select('*')
+                    .eq('recipe_name', foodItem)
+                    .single();
+
+                if (error && error.code === 'PGRST116') {
+                    // No exact match, try partial match
+                    ({ data, error } = await this.supabase
+                        .from('recipes')
+                        .select('*')
+                        .ilike('recipe_name', `%${foodItem}%`)
+                        .limit(1)
+                        .single());
+                }
+
+                if (error && error.code !== 'PGRST116') {
+                    console.error('Error fetching recipe:', error);
+                    return null;
+                }
+
+                return data;
             }
 
             // ===== SETTINGS METHODS =====
@@ -4362,5 +4577,22 @@
             });
         })();
     </script>
+
+    <!-- Recipe Modal -->
+    <div id="recipe-modal" class="modal-overlay hidden">
+        <div class="modal-content max-w-4xl">
+            <div class="modal-header flex justify-between items-center p-6 border-b">
+                <h2 id="recipe-modal-title" class="text-2xl font-bold text-stone-800">Recipe Details</h2>
+                <button class="modal-close text-stone-500 hover:text-stone-700 text-3xl" onclick="closeRecipeModal()">&times;</button>
+            </div>
+            <div id="recipe-modal-body" class="modal-body p-6">
+                <div class="flex justify-center items-center py-8">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-stone-600"></div>
+                    <span class="ml-3 text-stone-600">Loading recipe...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html> 
