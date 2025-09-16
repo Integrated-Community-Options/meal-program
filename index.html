@@ -1934,7 +1934,11 @@
                     
                     if (index === 0) button.classList.add('bg-stone-400'); // Highlight first day
                     
-                    button.addEventListener('click', () => showDailyMenu(day.toLowerCase()));
+                    button.addEventListener('click', () => {
+                        const weekPicker = document.getElementById('daily-week-picker');
+                        const selectedWeek = weekPicker ? weekPicker.value : null;
+                        showDailyMenu(day.toLowerCase(), selectedWeek);
+                    });
                     dailyMenuNav.appendChild(button);
                 });
                 
@@ -1943,12 +1947,18 @@
         }
 
         // Global daily menu functions (accessible from week picker handlers)
-        function showDailyMenu(day) {
-            console.log('📅 showDailyMenu called for day:', day);
+        function showDailyMenu(day, selectedWeek = null) {
+            console.log('📅 showDailyMenu called for day:', day, 'week:', selectedWeek);
             console.log('📊 Current menuData:', window.menuData);
             
             const dailyMenuNav = document.getElementById('daily-menu-nav');
             if (!dailyMenuNav) return;
+            
+            // Get selected week from picker if not provided
+            if (!selectedWeek) {
+                const weekPicker = document.getElementById('daily-week-picker');
+                selectedWeek = weekPicker ? weekPicker.value : null;
+            }
             
             // Update navigation highlight
             dailyMenuNav.querySelectorAll('button').forEach(btn => {
@@ -1962,9 +1972,24 @@
                 activeBtn.classList.add('bg-stone-400');
             }
             
-            // Check if we have menu data for this day
-            if (!window.menuData || !window.menuData[day]) {
-                console.warn('⚠️ No menu data found for day:', day);
+            // Check if we have menu data for this week and day
+            let dayData = null;
+            if (window.menuData && selectedWeek && window.menuData[selectedWeek] && window.menuData[selectedWeek][day]) {
+                dayData = window.menuData[selectedWeek][day];
+            } else if (window.menuData) {
+                // Fallback: look for the day in any week (for backwards compatibility)
+                const allWeeks = Object.keys(window.menuData);
+                for (const weekKey of allWeeks) {
+                    if (window.menuData[weekKey] && window.menuData[weekKey][day]) {
+                        dayData = window.menuData[weekKey][day];
+                        console.log('📅 Found data for', day, 'in week', weekKey);
+                        break;
+                    }
+                }
+            }
+            
+            if (!dayData) {
+                console.warn('⚠️ No menu data found for day:', day, 'week:', selectedWeek);
                 const dateLine = document.getElementById('daily-page-date-line');
                 const cardsContainer = document.getElementById('daily-page-cards');
                 
@@ -1977,7 +2002,6 @@
                 return;
             }
             
-            const dayData = window.menuData[day];
             console.log('📊 Day data:', dayData);
             
             // Update date line
@@ -2066,7 +2090,7 @@
             const ctx = canvas.getContext('2d');
             
             // Destroy existing chart if it exists
-            if (window.dailyPageChart) {
+            if (window.dailyPageChart && typeof window.dailyPageChart.destroy === 'function') {
                 window.dailyPageChart.destroy();
             }
             
@@ -3049,85 +3073,99 @@
 
             // Transform Supabase data into the format expected by the app
             const menuData = {};
-            const dayNames = {
-                'monday': 'Monday',
-                'tuesday': 'Tuesday', 
-                'wednesday': 'Wednesday',
-                'thursday': 'Thursday',
-                'friday': 'Friday'
+            
+            // Helper function to get week start date
+            const getWeekStart = (date) => {
+                const d = new Date(date);
+                const day = d.getDay();
+                const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+                const weekStart = new Date(d.setDate(diff));
+                return weekStart.toISOString().split('T')[0]; // Return YYYY-MM-DD format
             };
 
-            // Group data by date
-            const dateGroups = {};
+            // Group data by week and date
+            const weekGroups = {};
             data.forEach(item => {
-                const dateKey = item.date;
-                if (!dateGroups[dateKey]) {
-                    dateGroups[dateKey] = [];
+                const weekStart = getWeekStart(item.date);
+                if (!weekGroups[weekStart]) {
+                    weekGroups[weekStart] = {};
                 }
-                dateGroups[dateKey].push(item);
+                if (!weekGroups[weekStart][item.date]) {
+                    weekGroups[weekStart][item.date] = [];
+                }
+                weekGroups[weekStart][item.date].push(item);
             });
 
-            // Convert each date group into the expected format
-            Object.keys(dateGroups).forEach(dateKey => {
-                const items = dateGroups[dateKey];
-                const date = new Date(dateKey);
-                const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-                const dateDisplay = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' }) + 
-                                  this.getOrdinalSuffix(date.getDate());
+            // Convert each week's data into the expected format
+            Object.keys(weekGroups).forEach(weekStart => {
+                const weekData = weekGroups[weekStart];
+                const weekMenuData = {};
+                
+                Object.keys(weekData).forEach(dateKey => {
+                    const items = weekData[dateKey];
+                    const date = new Date(dateKey);
+                    const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+                    const dateDisplay = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' }) + 
+                                      this.getOrdinalSuffix(date.getDate());
 
-                // Group by meal type
-                const mealGroups = {};
-                items.forEach(item => {
-                    if (!mealGroups[item.meal_type]) {
-                        mealGroups[item.meal_type] = [];
-                    }
-                    mealGroups[item.meal_type].push(item);
-                });
-
-                // Create meals array
-                const meals = [];
-                Object.keys(mealGroups).forEach(mealType => {
-                    const mealItems = mealGroups[mealType];
-                    const mealTitle = mealType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
-                    
-                    const meal = {
-                        title: mealTitle,
-                        time: this.getMealTime(mealType),
-                        requiredComponents: this.getRequiredComponents(mealType),
-                        items: mealItems.map(item => ({
-                            component: this.mapComponentType(item.component_type),
-                            foodItem: item.food_item,
-                            servingSize: item.serving_size
-                        }))
-                    };
-                    meals.push(meal);
-                });
-
-                // Sort meals by time
-                meals.sort((a, b) => {
-                    const timeOrder = { 'AM Snack': 1, 'Lunch': 2, 'PM Snack': 3 };
-                    return (timeOrder[a.title] || 4) - (timeOrder[b.title] || 4);
-                });
-
-                // Create chart data
-                const componentCounts = {};
-                meals.forEach(meal => {
-                    meal.items.forEach(item => {
-                        if (item.foodItem !== 'N/A') {
-                            const comp = this.mapComponentToChartCategory(item.component);
-                            componentCounts[comp] = (componentCounts[comp] || 0) + 1;
+                    // Group by meal type
+                    const mealGroups = {};
+                    items.forEach(item => {
+                        if (!mealGroups[item.meal_type]) {
+                            mealGroups[item.meal_type] = [];
                         }
+                        mealGroups[item.meal_type].push(item);
                     });
-                });
 
-                menuData[dayOfWeek] = {
-                    date: dateDisplay,
-                    meals: meals,
-                    chart: {
-                        labels: Object.keys(componentCounts),
-                        data: Object.values(componentCounts)
-                    }
-                };
+                    // Create meals array
+                    const meals = [];
+                    Object.keys(mealGroups).forEach(mealType => {
+                        const mealItems = mealGroups[mealType];
+                        const mealTitle = mealType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+                        
+                        const meal = {
+                            title: mealTitle,
+                            time: this.getMealTime(mealType),
+                            requiredComponents: this.getRequiredComponents(mealType),
+                            items: mealItems.map(item => ({
+                                component: this.mapComponentType(item.component_type),
+                                foodItem: item.food_item,
+                                servingSize: item.serving_size
+                            }))
+                        };
+                        meals.push(meal);
+                    });
+
+                    // Sort meals by time
+                    meals.sort((a, b) => {
+                        const timeOrder = { 'AM Snack': 1, 'Lunch': 2, 'PM Snack': 3 };
+                        return (timeOrder[a.title] || 4) - (timeOrder[b.title] || 4);
+                    });
+
+                    // Create chart data
+                    const componentCounts = {};
+                    meals.forEach(meal => {
+                        meal.items.forEach(item => {
+                            if (item.foodItem !== 'N/A') {
+                                const comp = this.mapComponentToChartCategory(item.component);
+                                componentCounts[comp] = (componentCounts[comp] || 0) + 1;
+                            }
+                        });
+                    });
+
+                    weekMenuData[dayOfWeek] = {
+                        date: dateDisplay,
+                        fullDate: dateKey,
+                        meals: meals,
+                        chart: {
+                            labels: Object.keys(componentCounts),
+                            data: Object.values(componentCounts)
+                        }
+                    };
+                });
+                
+                // Store week data using week start date as key
+                menuData[weekStart] = weekMenuData;
             });
 
             console.log('📊 Transformed menu data:', menuData);
@@ -3375,8 +3413,10 @@
                     console.log('📅 Updating daily menu view');
                     // Re-initialize the daily menu with the selected week data
                     if (currentView === 'daily-menu') {
-                        // Default to Monday when week changes
-                        showDailyMenu('monday');
+                        // Default to Monday when week changes, pass the selected week
+                        const weekPicker = document.getElementById('daily-week-picker');
+                        const selectedWeek = weekPicker ? weekPicker.value : null;
+                        showDailyMenu('monday', selectedWeek);
                     }
                     break;
                 case 'week-selector':
