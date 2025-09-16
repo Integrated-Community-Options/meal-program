@@ -2856,11 +2856,169 @@
                     settings[setting.setting_key] = setting.setting_value;
                 });
 
-                return settings;
+                            return settings;
+        }
+
+        // ===== MENU DATA METHODS =====
+        async getMenuData() {
+            if (!this.supabase) {
+                throw new Error('Supabase not connected');
+            }
+
+            console.log('📊 Loading menu data from Supabase...');
+
+            const { data, error } = await this.supabase
+                .from('menu_data')
+                .select('*')
+                .order('date', { ascending: true })
+                .order('meal_type', { ascending: true });
+
+            if (error) {
+                throw new Error(`Failed to get menu data: ${error.message}`);
+            }
+
+            console.log('📊 Raw menu data from Supabase:', data);
+
+            // Transform Supabase data into the format expected by the app
+            const menuData = {};
+            const dayNames = {
+                'monday': 'Monday',
+                'tuesday': 'Tuesday', 
+                'wednesday': 'Wednesday',
+                'thursday': 'Thursday',
+                'friday': 'Friday'
+            };
+
+            // Group data by date
+            const dateGroups = {};
+            data.forEach(item => {
+                const dateKey = item.date;
+                if (!dateGroups[dateKey]) {
+                    dateGroups[dateKey] = [];
+                }
+                dateGroups[dateKey].push(item);
+            });
+
+            // Convert each date group into the expected format
+            Object.keys(dateGroups).forEach(dateKey => {
+                const items = dateGroups[dateKey];
+                const date = new Date(dateKey);
+                const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+                const dateDisplay = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' }) + 
+                                  this.getOrdinalSuffix(date.getDate());
+
+                // Group by meal type
+                const mealGroups = {};
+                items.forEach(item => {
+                    if (!mealGroups[item.meal_type]) {
+                        mealGroups[item.meal_type] = [];
+                    }
+                    mealGroups[item.meal_type].push(item);
+                });
+
+                // Create meals array
+                const meals = [];
+                Object.keys(mealGroups).forEach(mealType => {
+                    const mealItems = mealGroups[mealType];
+                    const mealTitle = mealType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+                    
+                    const meal = {
+                        title: mealTitle,
+                        time: this.getMealTime(mealType),
+                        requiredComponents: this.getRequiredComponents(mealType),
+                        items: mealItems.map(item => ({
+                            component: this.mapComponentType(item.component_type),
+                            foodItem: item.food_item,
+                            servingSize: item.serving_size
+                        }))
+                    };
+                    meals.push(meal);
+                });
+
+                // Sort meals by time
+                meals.sort((a, b) => {
+                    const timeOrder = { 'AM Snack': 1, 'Lunch': 2, 'PM Snack': 3 };
+                    return (timeOrder[a.title] || 4) - (timeOrder[b.title] || 4);
+                });
+
+                // Create chart data
+                const componentCounts = {};
+                meals.forEach(meal => {
+                    meal.items.forEach(item => {
+                        if (item.foodItem !== 'N/A') {
+                            const comp = this.mapComponentToChartCategory(item.component);
+                            componentCounts[comp] = (componentCounts[comp] || 0) + 1;
+                        }
+                    });
+                });
+
+                menuData[dayOfWeek] = {
+                    date: dateDisplay,
+                    meals: meals,
+                    chart: {
+                        labels: Object.keys(componentCounts),
+                        data: Object.values(componentCounts)
+                    }
+                };
+            });
+
+            console.log('📊 Transformed menu data:', menuData);
+            return menuData;
+        }
+
+        // Helper methods for menu data transformation
+        getOrdinalSuffix(day) {
+            if (day > 3 && day < 21) return 'th';
+            switch (day % 10) {
+                case 1: return 'st';
+                case 2: return 'nd';
+                case 3: return 'rd';
+                default: return 'th';
             }
         }
 
-        // Initialize Supabase integration with auto-connect
+        getMealTime(mealType) {
+            switch(mealType) {
+                case 'AM_Snack': return '9:00 AM';
+                case 'Lunch': return '12:00 PM';
+                case 'PM_Snack': return '1:00 PM';
+                default: return '12:00 PM';
+            }
+        }
+
+        getRequiredComponents(mealType) {
+            switch(mealType) {
+                case 'AM_Snack':
+                case 'PM_Snack':
+                    return 'Required to provide two different components';
+                case 'Lunch':
+                    return 'Required Components: Fluid Milk, M/MA, Vegetables, Fruits, Grains';
+                default:
+                    return 'Required components vary by meal type';
+            }
+        }
+
+        mapComponentType(componentType) {
+            switch(componentType) {
+                case 'Protein': return 'M/MA';
+                case 'Milk': return 'Fluid Milk';
+                case 'Extra': return 'Extra(s)';
+                default: return componentType;
+            }
+        }
+
+        mapComponentToChartCategory(component) {
+            switch(component) {
+                case 'Grain': return 'Whole Grain Rich';
+                case 'M/MA': return 'Meat/Alternate';
+                case 'Fluid Milk': return 'Fluid Milk';
+                case 'Extra(s)': return 'Extras';
+                default: return component;
+            }
+        }
+    }
+
+    // Initialize Supabase integration with auto-connect
         const database = new SupabaseIntegration();
         
         // Auto-connect on page load with hardcoded credentials
@@ -2894,6 +3052,12 @@
                 
                 // Initialize all week pickers with user-friendly options
                 initializeAllWeekPickers();
+                
+                // Initialize menu data if not already loaded
+                if (!window.menuData) {
+                    console.log('⚠️ No menu data loaded from Supabase, using default data');
+                    window.menuData = loadMenuDataFromStorage();
+                }
                 
                 // Refresh current view to show loaded data
                 if (currentView === 'eligibility-roster') {
@@ -3056,6 +3220,41 @@
             }
         }
 
+        // Load menu data from storage or defaults
+        function loadMenuDataFromStorage() {
+            try {
+                // First try to load from localStorage (Supabase data)
+                const stored = localStorage.getItem('cacfp_menu_data');
+                if (stored) {
+                    const parsedData = JSON.parse(stored);
+                    console.log('📊 Loaded menu data from localStorage:', parsedData);
+                    return parsedData;
+                }
+            } catch (error) {
+                console.error('Error loading menu data from localStorage:', error);
+            }
+
+            // Fall back to default data if no stored data
+            console.log('📊 Using default menu data');
+            return {
+                monday: {
+                    date: 'August 11th',
+                    meals: [
+                        {
+                            title: 'AM Snack',
+                            time: '9:00 AM',
+                            requiredComponents: 'Required to provide two different components',
+                            items: [
+                                { component: 'Grain', foodItem: 'Whole Grain Bread', servingSize: '1 slice' },
+                                { component: 'Fruit', foodItem: 'Applesauce', servingSize: '2 oz cup' }
+                            ]
+                        }
+                    ],
+                    chart: { labels: ['Grain', 'Fruit'], data: [1, 1] }
+                }
+            };
+        }
+
         // ===== DATA SYNCHRONIZATION FUNCTIONS =====
         async function syncAllData() {
             if (!database.isConnected) {
@@ -3152,6 +3351,22 @@
 
         async function loadDataFromDatabase() {
             try {
+                // Load menu data from Supabase
+                try {
+                    console.log('📊 Loading menu data from Supabase...');
+                    const menuDataFromDB = await database.getMenuData();
+                    if (menuDataFromDB && Object.keys(menuDataFromDB).length > 0) {
+                        // Store in the global menuData variable that the app uses
+                        window.menuData = menuDataFromDB;
+                        localStorage.setItem('cacfp_menu_data', JSON.stringify(menuDataFromDB));
+                        console.log('✅ Menu data loaded and stored:', menuDataFromDB);
+                    } else {
+                        console.log('⚠️ No menu data found in Supabase, using defaults');
+                    }
+                } catch (error) {
+                    console.log('⚠️ Error loading menu data:', error.message);
+                }
+
                 // Load eligibility data from Supabase
                 const eligibilityData = await database.getEligibilityData();
                 localStorage.setItem('eligibility_roster_data', JSON.stringify(eligibilityData));
