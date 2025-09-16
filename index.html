@@ -2033,6 +2033,8 @@
             } else {
                 console.warn('⚠️ No menu data found for', day, 'in selected week', selectedWeek);
                 console.log('📊 Available weeks:', Object.keys(window.menuData || {}));
+                console.log('🔍 Looking for week key:', selectedWeek);
+                console.log('🔍 Actual menu data structure:', window.menuData);
                 
                 // Only show a message that no data exists for this week
                 const dateLine = document.getElementById('daily-page-date-line');
@@ -3646,13 +3648,14 @@
             // Transform Supabase data into the format expected by the app
             const menuData = {};
             
-            // Helper function to get week start date
+            // Helper function to get week start date (consistent with getWeekStartDate)
             const getWeekStart = (date) => {
-                const d = new Date(date);
-                const day = d.getDay();
-                const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
-                const weekStart = new Date(d.setDate(diff));
-                return weekStart.toISOString().split('T')[0]; // Return YYYY-MM-DD format
+                const result = new Date(date);
+                const day = result.getDay();
+                const diff = result.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+                result.setDate(diff);
+                result.setHours(0, 0, 0, 0);
+                return result.toISOString().split('T')[0]; // Return YYYY-MM-DD format
             };
 
             // Group data by week and date
@@ -3670,6 +3673,7 @@
 
             // Convert each week's data into the expected format
             Object.keys(weekGroups).forEach(weekStart => {
+                console.log('📅 Processing week:', weekStart);
                 const weekData = weekGroups[weekStart];
                 const weekMenuData = {};
                 
@@ -3741,6 +3745,7 @@
             });
 
             console.log('📊 Transformed menu data:', menuData);
+            console.log('📊 Final week keys:', Object.keys(menuData));
             return menuData;
         }
 
