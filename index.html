@@ -2029,16 +2029,31 @@
             let dayData = null;
             if (window.menuData && selectedWeek && window.menuData[selectedWeek] && window.menuData[selectedWeek][day]) {
                 dayData = window.menuData[selectedWeek][day];
-            } else if (window.menuData) {
-                // Fallback: look for the day in any week (for backwards compatibility)
-                const allWeeks = Object.keys(window.menuData);
-                for (const weekKey of allWeeks) {
-                    if (window.menuData[weekKey] && window.menuData[weekKey][day]) {
-                        dayData = window.menuData[weekKey][day];
-                        console.log('📅 Found data for', day, 'in week', weekKey);
-                        break;
-                    }
+                console.log('📅 Found data for', day, 'in selected week', selectedWeek);
+            } else {
+                console.warn('⚠️ No menu data found for', day, 'in selected week', selectedWeek);
+                console.log('📊 Available weeks:', Object.keys(window.menuData || {}));
+                
+                // Only show a message that no data exists for this week
+                const dateLine = document.getElementById('daily-page-date-line');
+                const cardsContainer = document.getElementById('daily-page-cards');
+                
+                if (dateLine) {
+                    dateLine.textContent = `No menu data available for the selected week`;
                 }
+                if (cardsContainer) {
+                    const weekPicker = document.getElementById('daily-week-picker');
+                    const selectedWeekText = weekPicker ? weekPicker.options[weekPicker.selectedIndex].text : 'selected week';
+                    cardsContainer.innerHTML = `
+                        <div class="text-center py-8">
+                            <div class="text-6xl mb-4">📅</div>
+                            <h3 class="text-xl font-semibold text-stone-800 mb-2">No Menu Data</h3>
+                            <p class="text-stone-600 mb-4">No menu data is available for ${selectedWeekText}.</p>
+                            <p class="text-sm text-stone-500">Try selecting the "August 11 - 17, 2025" week which has sample data.</p>
+                        </div>
+                    `;
+                }
+                return;
             }
             
             if (!dayData) {
@@ -2287,21 +2302,21 @@
                     // Display the recipe
                     displayRecipe(recipe);
                 } else {
-                    // Show recipe not found message
+                    // Show recipe not found with option to create new recipe
                     body.innerHTML = `
                         <div class="text-center py-8">
                             <div class="text-6xl mb-4">🍽️</div>
                             <h3 class="text-xl font-semibold text-stone-800 mb-2">Recipe Not Found</h3>
                             <p class="text-stone-600 mb-6">We don't have a recipe for "${foodItem}" yet.</p>
-                            <div class="bg-stone-50 rounded-lg p-4 text-left">
-                                <h4 class="font-semibold text-stone-700 mb-2">Would you like to add this recipe?</h4>
-                                <p class="text-sm text-stone-600">Contact your administrator to add recipes for:</p>
-                                <ul class="list-disc list-inside text-sm text-stone-600 mt-2">
-                                    <li>Ingredients and measurements</li>
-                                    <li>Step-by-step instructions</li>
-                                    <li>Nutritional information</li>
-                                    <li>Component contributions</li>
-                                </ul>
+                            <div class="flex gap-4 justify-center">
+                                <button onclick="showAddRecipeForm('${foodItem}')" 
+                                        class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                                    ➕ Add Recipe
+                                </button>
+                                <button onclick="closeRecipeModal()" 
+                                        class="px-6 py-2 bg-stone-300 text-stone-700 rounded-lg hover:bg-stone-400 transition-colors">
+                                    Cancel
+                                </button>
                             </div>
                         </div>
                     `;
@@ -2451,6 +2466,233 @@
             const modal = document.getElementById('recipe-modal');
             modal.classList.remove('visible');
             modal.classList.add('hidden');
+        }
+
+        function showAddRecipeForm(foodItem) {
+            const body = document.getElementById('recipe-modal-body');
+            const title = document.getElementById('recipe-modal-title');
+            
+            title.textContent = `Add Recipe: ${foodItem}`;
+            
+            body.innerHTML = `
+                <form id="add-recipe-form" class="space-y-6">
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <!-- Left Column -->
+                        <div>
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-stone-700 mb-2">Recipe Name</label>
+                                <input type="text" id="recipe-name" value="${foodItem}" 
+                                       class="w-full px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-stone-700 mb-2">Description</label>
+                                <textarea id="recipe-description" rows="3" 
+                                          class="w-full px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                                          placeholder="Brief description of the recipe..."></textarea>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-stone-700 mb-2">Yield</label>
+                                <input type="text" id="recipe-yield" 
+                                       class="w-full px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                                       placeholder="e.g., 4 servings, 1 loaf, 2 cups">
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-stone-700 mb-2">Ingredients</label>
+                                <div id="ingredients-list" class="space-y-2">
+                                    <div class="flex gap-2">
+                                        <input type="text" placeholder="Ingredient" class="flex-1 px-3 py-2 border border-stone-300 rounded-md">
+                                        <input type="text" placeholder="Amount" class="w-24 px-3 py-2 border border-stone-300 rounded-md">
+                                        <button type="button" onclick="removeIngredient(this)" class="px-2 py-2 text-red-600 hover:bg-red-50 rounded">✕</button>
+                                    </div>
+                                </div>
+                                <button type="button" onclick="addIngredient()" class="mt-2 text-sm text-green-600 hover:text-green-700">+ Add Ingredient</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Right Column -->
+                        <div>
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-stone-700 mb-2">Instructions</label>
+                                <div id="instructions-list" class="space-y-2">
+                                    <div class="flex gap-2">
+                                        <span class="flex-shrink-0 w-6 h-6 bg-stone-600 text-white rounded-full flex items-center justify-center text-sm">1</span>
+                                        <textarea placeholder="Step 1 instructions..." class="flex-1 px-3 py-2 border border-stone-300 rounded-md" rows="2"></textarea>
+                                        <button type="button" onclick="removeInstruction(this)" class="px-2 py-2 text-red-600 hover:bg-red-50 rounded">✕</button>
+                                    </div>
+                                </div>
+                                <button type="button" onclick="addInstruction()" class="mt-2 text-sm text-green-600 hover:text-green-700">+ Add Step</button>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-stone-700 mb-2">Storage Instructions</label>
+                                <textarea id="storage-instructions" rows="2" 
+                                          class="w-full px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                                          placeholder="How to store this recipe..."></textarea>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-stone-700 mb-2">CACFP Component Contributions</label>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <input type="text" id="grain-contribution" placeholder="Grain" class="px-3 py-2 border border-stone-300 rounded-md text-sm">
+                                    <input type="text" id="protein-contribution" placeholder="Protein" class="px-3 py-2 border border-stone-300 rounded-md text-sm">
+                                    <input type="text" id="vegetable-contribution" placeholder="Vegetable" class="px-3 py-2 border border-stone-300 rounded-md text-sm">
+                                    <input type="text" id="fruit-contribution" placeholder="Fruit" class="px-3 py-2 border border-stone-300 rounded-md text-sm">
+                                    <input type="text" id="milk-contribution" placeholder="Milk" class="px-3 py-2 border border-stone-300 rounded-md text-sm">
+                                    <input type="text" id="extra-contribution" placeholder="Extra" class="px-3 py-2 border border-stone-300 rounded-md text-sm">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-4 justify-end pt-4 border-t">
+                        <button type="button" onclick="closeRecipeModal()" 
+                                class="px-6 py-2 bg-stone-300 text-stone-700 rounded-lg hover:bg-stone-400 transition-colors">
+                            Cancel
+                        </button>
+                        <button type="submit" 
+                                class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                            💾 Save Recipe
+                        </button>
+                    </div>
+                </form>
+            `;
+            
+            // Add form submit handler
+            document.getElementById('add-recipe-form').addEventListener('submit', handleRecipeSubmit);
+        }
+
+        function addIngredient() {
+            const list = document.getElementById('ingredients-list');
+            const newIngredient = document.createElement('div');
+            newIngredient.className = 'flex gap-2';
+            newIngredient.innerHTML = `
+                <input type="text" placeholder="Ingredient" class="flex-1 px-3 py-2 border border-stone-300 rounded-md">
+                <input type="text" placeholder="Amount" class="w-24 px-3 py-2 border border-stone-300 rounded-md">
+                <button type="button" onclick="removeIngredient(this)" class="px-2 py-2 text-red-600 hover:bg-red-50 rounded">✕</button>
+            `;
+            list.appendChild(newIngredient);
+        }
+
+        function removeIngredient(button) {
+            button.parentElement.remove();
+        }
+
+        function addInstruction() {
+            const list = document.getElementById('instructions-list');
+            const stepNumber = list.children.length + 1;
+            const newInstruction = document.createElement('div');
+            newInstruction.className = 'flex gap-2';
+            newInstruction.innerHTML = `
+                <span class="flex-shrink-0 w-6 h-6 bg-stone-600 text-white rounded-full flex items-center justify-center text-sm">${stepNumber}</span>
+                <textarea placeholder="Step ${stepNumber} instructions..." class="flex-1 px-3 py-2 border border-stone-300 rounded-md" rows="2"></textarea>
+                <button type="button" onclick="removeInstruction(this)" class="px-2 py-2 text-red-600 hover:bg-red-50 rounded">✕</button>
+            `;
+            list.appendChild(newInstruction);
+        }
+
+        function removeInstruction(button) {
+            const list = document.getElementById('instructions-list');
+            button.parentElement.remove();
+            // Renumber the steps
+            Array.from(list.children).forEach((child, index) => {
+                const stepNumber = child.querySelector('span');
+                const textarea = child.querySelector('textarea');
+                if (stepNumber) stepNumber.textContent = index + 1;
+                if (textarea) textarea.placeholder = `Step ${index + 1} instructions...`;
+            });
+        }
+
+        async function handleRecipeSubmit(event) {
+            event.preventDefault();
+            
+            const submitButton = event.target.querySelector('button[type="submit"]');
+            const originalText = submitButton.innerHTML;
+            submitButton.innerHTML = '💾 Saving...';
+            submitButton.disabled = true;
+            
+            try {
+                // Collect form data
+                const recipeName = document.getElementById('recipe-name').value;
+                const description = document.getElementById('recipe-description').value;
+                const yield = document.getElementById('recipe-yield').value;
+                const storageInstructions = document.getElementById('storage-instructions').value;
+                
+                // Collect ingredients
+                const ingredientInputs = document.querySelectorAll('#ingredients-list > div');
+                const ingredients = [];
+                ingredientInputs.forEach(div => {
+                    const item = div.querySelector('input[placeholder="Ingredient"]').value;
+                    const amount = div.querySelector('input[placeholder="Amount"]').value;
+                    if (item && amount) {
+                        ingredients.push({ item, amount });
+                    }
+                });
+                
+                // Collect instructions
+                const instructionInputs = document.querySelectorAll('#instructions-list > div textarea');
+                const instructions = [];
+                instructionInputs.forEach((textarea, index) => {
+                    const instruction = textarea.value;
+                    if (instruction) {
+                        instructions.push({ step: index + 1, instruction });
+                    }
+                });
+                
+                // Collect component contributions
+                const componentContributions = {};
+                const grainContrib = document.getElementById('grain-contribution').value;
+                const proteinContrib = document.getElementById('protein-contribution').value;
+                const vegetableContrib = document.getElementById('vegetable-contribution').value;
+                const fruitContrib = document.getElementById('fruit-contribution').value;
+                const milkContrib = document.getElementById('milk-contribution').value;
+                const extraContrib = document.getElementById('extra-contribution').value;
+                
+                if (grainContrib) componentContributions.grain = grainContrib;
+                if (proteinContrib) componentContributions.protein = proteinContrib;
+                if (vegetableContrib) componentContributions.vegetable = vegetableContrib;
+                if (fruitContrib) componentContributions.fruit = fruitContrib;
+                if (milkContrib) componentContributions.milk = milkContrib;
+                if (extraContrib) componentContributions.extra = extraContrib;
+                
+                // Generate recipe ID
+                const recipeId = 'USER-' + Date.now();
+                
+                // Save to Supabase
+                const { data, error } = await database.supabase
+                    .from('recipes')
+                    .insert({
+                        recipe_id: recipeId,
+                        recipe_name: recipeName,
+                        description: description,
+                        yield: yield,
+                        ingredients_json: ingredients,
+                        instructions_json: instructions,
+                        component_contributions_json: componentContributions,
+                        storage_instructions: storageInstructions
+                    });
+                
+                if (error) {
+                    throw error;
+                }
+                
+                // Success! Show the new recipe
+                showStatusMessage('Recipe saved successfully!', 'success');
+                const newRecipe = await database.getRecipeByFoodItem(recipeName);
+                if (newRecipe) {
+                    displayRecipe(newRecipe);
+                }
+                
+            } catch (error) {
+                console.error('Error saving recipe:', error);
+                showStatusMessage('Error saving recipe. Please try again.', 'error');
+                
+                // Re-enable button
+                submitButton.innerHTML = originalText;
+                submitButton.disabled = false;
+            }
         }
 
         function populateWeekPicker(picker) {
