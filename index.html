@@ -1937,34 +1937,200 @@
                 
                 showDailyMenu('monday'); // Default to Monday
             }
+        }
+
+        // Global daily menu functions (accessible from week picker handlers)
+        function showDailyMenu(day) {
+            console.log('📅 showDailyMenu called for day:', day);
+            console.log('📊 Current menuData:', window.menuData);
             
-            function showDailyMenu(day) {
-                // Update navigation highlight
-                dailyMenuNav.querySelectorAll('button').forEach(btn => {
-                    btn.classList.remove('bg-stone-400');
-                    btn.classList.add('bg-stone-200');
-                });
-                
-                const activeBtn = dailyMenuNav.querySelector(`[data-day="${day}"]`);
-                if (activeBtn) {
-                    activeBtn.classList.remove('bg-stone-200');
-                    activeBtn.classList.add('bg-stone-400');
-                }
-                
-                // Update date line
-                const dateLine = document.getElementById('daily-page-date-line');
-                if (dateLine) {
-                    dateLine.textContent = `Viewing ${day.charAt(0).toUpperCase() + day.slice(1)}'s menu`;
-                }
-                
-                showStatusMessage(`Showing ${day}'s daily menu`, 'info');
+            const dailyMenuNav = document.getElementById('daily-menu-nav');
+            if (!dailyMenuNav) return;
+            
+            // Update navigation highlight
+            dailyMenuNav.querySelectorAll('button').forEach(btn => {
+                btn.classList.remove('bg-stone-400');
+                btn.classList.add('bg-stone-200');
+            });
+            
+            const activeBtn = dailyMenuNav.querySelector(`[data-day="${day}"]`);
+            if (activeBtn) {
+                activeBtn.classList.remove('bg-stone-200');
+                activeBtn.classList.add('bg-stone-400');
             }
             
-            function populateWeekPicker(picker) {
-                console.log('📅 Populating week picker:', picker.id);
+            // Check if we have menu data for this day
+            if (!window.menuData || !window.menuData[day]) {
+                console.warn('⚠️ No menu data found for day:', day);
+                const dateLine = document.getElementById('daily-page-date-line');
+                const cardsContainer = document.getElementById('daily-page-cards');
                 
-                const currentDate = new Date();
-                const currentYear = currentDate.getFullYear();
+                if (dateLine) {
+                    dateLine.textContent = `No menu data available for ${day.charAt(0).toUpperCase() + day.slice(1)}`;
+                }
+                if (cardsContainer) {
+                    cardsContainer.innerHTML = '<p class="text-center text-gray-500 p-8">No menu data available for this day.</p>';
+                }
+                return;
+            }
+            
+            const dayData = window.menuData[day];
+            console.log('📊 Day data:', dayData);
+            
+            // Update date line
+            const dateLine = document.getElementById('daily-page-date-line');
+            if (dateLine && dayData.date) {
+                dateLine.textContent = `${dayData.date}`;
+            }
+            
+            // Render meal cards
+            renderDailyMenuCards(day, dayData);
+            
+            // Update chart
+            updateDailyChart(dayData);
+            
+            showStatusMessage(`Showing ${day}'s daily menu`, 'info');
+        }
+        
+        function renderDailyMenuCards(day, dayData) {
+            const cardsContainer = document.getElementById('daily-page-cards');
+            if (!cardsContainer || !dayData.meals) {
+                console.warn('⚠️ No cards container or meals data');
+                return;
+            }
+            
+            console.log('🎨 Rendering meal cards for:', day, dayData.meals);
+            
+            const cardsHtml = dayData.meals.map(meal => {
+                const itemsHtml = meal.items.map(item => `
+                    <div class="flex justify-between items-center py-1 border-b border-stone-100 last:border-b-0">
+                        <div class="flex-1">
+                            <span class="font-medium text-stone-800">${item.foodItem}</span>
+                            <span class="text-sm text-stone-500 ml-2">(${item.component})</span>
+                        </div>
+                        <span class="text-sm text-stone-600">${item.servingSize}</span>
+                    </div>
+                `).join('');
+                
+                return `
+                    <div class="meal-card p-6">
+                        <div class="meal-header mb-4">
+                            <h3 class="text-xl font-bold text-stone-800">${meal.title}</h3>
+                            <div class="flex justify-between items-center text-sm text-stone-600 mt-1">
+                                <span>${meal.time}</span>
+                            </div>
+                        </div>
+                        <div class="meal-requirements mb-4 p-3 bg-stone-50 rounded-md">
+                            <p class="text-sm text-stone-700">${meal.requiredComponents}</p>
+                        </div>
+                        <div class="meal-items space-y-1">
+                            ${itemsHtml}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            cardsContainer.innerHTML = cardsHtml;
+            console.log('✅ Meal cards rendered successfully');
+        }
+        
+        function updateDailyChart(dayData) {
+            const canvas = document.getElementById('dailyPageChart');
+            if (!canvas || !dayData.meals) {
+                console.warn('⚠️ No chart canvas or meals data');
+                return;
+            }
+            
+            console.log('📈 Updating daily chart');
+            
+            // Calculate component counts
+            const componentCounts = {};
+            dayData.meals.forEach(meal => {
+                meal.items.forEach(item => {
+                    if (item.foodItem !== 'N/A') {
+                        const component = item.component;
+                        componentCounts[component] = (componentCounts[component] || 0) + 1;
+                    }
+                });
+            });
+            
+            const labels = Object.keys(componentCounts);
+            const data = Object.values(componentCounts);
+            const colors = labels.map(label => getComponentColor(label));
+            
+            console.log('📊 Chart data:', { labels, data, colors });
+            
+            const ctx = canvas.getContext('2d');
+            
+            // Destroy existing chart if it exists
+            if (window.dailyPageChart) {
+                window.dailyPageChart.destroy();
+            }
+            
+            // Create new chart
+            window.dailyPageChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: colors,
+                        borderColor: '#FFFAF0',
+                        borderWidth: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 20,
+                                color: '#44403C',
+                                font: { size: 14 }
+                            }
+                        },
+                        tooltip: {
+                            displayColors: false,
+                            callbacks: {
+                                title: (items) => items[0].label || '',
+                                label: (context) => {
+                                    const value = context.parsed;
+                                    const total = context.dataset.data.reduce((sum, val) => sum + val, 0);
+                                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0';
+                                    return `${value} items (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            console.log('✅ Daily chart updated successfully');
+        }
+        
+        function getComponentColor(component) {
+            const colorMap = {
+                'Grain': '#D97706',
+                'Fruit': '#7C3AED', 
+                'Vegetable': '#059669',
+                'M/MA': '#DC2626',
+                'Fluid Milk': '#EAB308',
+                'Extra(s)': '#2563EB',
+                'Protein': '#DC2626',
+                'Milk': '#EAB308',
+                'Extra': '#2563EB'
+            };
+            return colorMap[component] || '#6B7280';
+        }
+
+        function populateWeekPicker(picker) {
+            console.log('📅 Populating week picker:', picker.id);
+            
+            const currentDate = new Date();
+            const currentYear = currentDate.getFullYear();
                 
                 // Generate weeks for the current year
                 const startDate = new Date(currentYear, 0, 1); // January 1st
@@ -3205,7 +3371,11 @@
                     break;
                 case 'daily-week-picker':
                     console.log('📅 Updating daily menu view');
-                    // Update daily menu view logic here
+                    // Re-initialize the daily menu with the selected week data
+                    if (currentView === 'daily-menu') {
+                        // Default to Monday when week changes
+                        showDailyMenu('monday');
+                    }
                     break;
                 case 'week-selector':
                     console.log('🍽️ Updating meal count view');
