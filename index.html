@@ -1539,6 +1539,59 @@
         // Debug: JavaScript file loaded successfully
         console.log('🚀 JavaScript loaded successfully - no syntax errors');
         
+        // Chart icons for different food components
+        const ICONS = {
+            'Meat/Alternate': '🥩',
+            'Fluid Milk': '🥛',
+            'Vegetable': '🥦',
+            'Fruit': '🍇',
+            'Whole Grain Rich': '🌾',
+            'Extras': '🍽️'
+        };
+
+        // Chart.js plugin to add icons to doughnut chart segments
+        const iconPlugin = {
+            id: 'iconPlugin',
+            afterDatasetsDraw(chart, args, opts) {
+                const { ctx } = chart;
+                const meta = chart.getDatasetMeta(0);
+                meta.data.forEach((arc, index) => {
+                    const category = chart.data.labels[index];
+                    const icon = ICONS[category];
+                    // Skip drawing an icon if the category has no associated icon
+                    if (!icon) return;
+                    // Skip drawing an icon when the data value for this segment is zero
+                    const value = chart.data.datasets[0].data[index];
+                    if (!value || value === 0) return;
+                    const startAngle = arc.startAngle;
+                    const endAngle = arc.endAngle;
+                    const angle = (startAngle + endAngle) / 2;
+                    // Calculate midpoint radius between inner and outer radius
+                    const r = (arc.outerRadius + arc.innerRadius) / 2;
+                    const cx = arc.x;
+                    const cy = arc.y;
+                    const x = cx + r * Math.cos(angle);
+                    const y = cy + r * Math.sin(angle);
+                    // Determine font size proportional to arc size
+                    const fontSize = Math.min(arc.outerRadius - arc.innerRadius, 50) * 0.6;
+                    // Compute brightness of the segment color
+                    const color = getComponentColor(category) || '#000000';
+                    const rVal = parseInt(color.substr(1, 2), 16);
+                    const gVal = parseInt(color.substr(3, 2), 16);
+                    const bVal = parseInt(color.substr(5, 2), 16);
+                    const brightness = (rVal * 299 + gVal * 587 + bVal * 114) / 1000;
+                    const textColor = brightness > 150 ? '#1F2937' : '#FFFFFF';
+                    ctx.save();
+                    ctx.font = `${fontSize}px serif`;
+                    ctx.fillStyle = textColor;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(icon, x, y);
+                    ctx.restore();
+                });
+            }
+        };
+        
         // Application state
         let currentView = 'dashboard';
         let menuData;
@@ -2028,31 +2081,75 @@
             
             console.log('🎨 Rendering meal cards for:', day, dayData.meals);
             
-            const cardsHtml = dayData.meals.map(meal => {
-                const itemsHtml = meal.items.map(item => `
-                    <div class="flex justify-between items-center py-1 border-b border-stone-100 last:border-b-0">
-                        <div class="flex-1">
-                            <span class="font-medium text-stone-800">${item.foodItem}</span>
-                            <span class="text-sm text-stone-500 ml-2">(${item.component})</span>
-                        </div>
-                        <span class="text-sm text-stone-600">${item.servingSize}</span>
-                    </div>
-                `).join('');
+            const cardsHtml = dayData.meals.map((meal, mealIndex) => {
+                // Build table rows with recipe buttons
+                const recipeBtnStyle = 'background-color:#FDE68A;color:#9A3412;';
+                const rowsHtml = meal.items.map((item, itemIndex) => {
+                    const isNA = item.foodItem === 'N/A';
+                    const buttonClass = isNA
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'cursor-pointer';
+                    const disabledAttr = isNA ? 'disabled' : '';
+                    return `
+                        <tr>
+                            <td class="text-stone-700 font-medium">${item.component}</td>
+                            <td class="text-stone-800">${item.foodItem}</td>
+                            <td class="text-stone-800">${item.servingSize}</td>
+                            <td class="p-0 text-center">
+                                <button class="std-recipe-btn ${buttonClass} font-semibold py-1 px-2 rounded-md transition-colors duration-200" 
+                                        data-food-item="${item.foodItem}" 
+                                        ${disabledAttr} 
+                                        style="${isNA ? '' : recipeBtnStyle}"
+                                        onclick="showRecipeModal('${item.foodItem}')">View Recipe</button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+                
+                // Determine card styling based on meal title
+                let cardClass = 'meal-card';
+                let titleTextColor = 'text-teal-700';
+                let requiredTextColor = 'text-stone-600';
+                let tableHeaderBg = '#F8F5F0';
+                let tableHeaderText = '#57534E';
+                
+                // Apply meal specific coloring
+                if (meal.title === 'AM Snack') {
+                    cardClass += ' am-snack-card';
+                    titleTextColor = 'text-white';
+                    requiredTextColor = 'text-white';
+                    tableHeaderBg = '#15803d';
+                    tableHeaderText = 'white';
+                } else if (meal.title === 'Lunch') {
+                    cardClass += ' lunch-card';
+                    titleTextColor = 'text-white';
+                    requiredTextColor = 'text-white';
+                    tableHeaderBg = '#1E40AF';
+                    tableHeaderText = 'white';
+                } else if (meal.title === 'PM Snack') {
+                    cardClass += ' pm-snack-card';
+                    titleTextColor = 'text-white';
+                    requiredTextColor = 'text-white';
+                    tableHeaderBg = '#EA580C';
+                    tableHeaderText = 'white';
+                }
                 
                 return `
-                    <div class="meal-card p-6">
-                        <div class="meal-header mb-4">
-                            <h3 class="text-xl font-bold text-stone-800">${meal.title}</h3>
-                            <div class="flex justify-between items-center text-sm text-stone-600 mt-1">
-                                <span>${meal.time}</span>
-                            </div>
-                        </div>
-                        <div class="meal-requirements mb-4 p-3 bg-stone-50 rounded-md">
-                            <p class="text-sm text-stone-700">${meal.requiredComponents}</p>
-                        </div>
-                        <div class="meal-items space-y-1">
-                            ${itemsHtml}
-                        </div>
+                    <div class="${cardClass} p-6">
+                        <span class="time-slot">${meal.time}</span>
+                        <h3 class="text-2xl font-bold mb-2 ${titleTextColor}">${meal.title}</h3>
+                        <p class="text-sm ${requiredTextColor} mb-4">${meal.requiredComponents}</p>
+                        <table class="meal-table">
+                            <thead>
+                                <tr>
+                                    <th style="background-color:${tableHeaderBg}; color:${tableHeaderText};">Component</th>
+                                    <th style="background-color:${tableHeaderBg}; color:${tableHeaderText};">Food Item</th>
+                                    <th style="background-color:${tableHeaderBg}; color:${tableHeaderText};">Serving Size</th>
+                                    <th style="background-color:${tableHeaderBg}; color:${tableHeaderText};">Standardized Recipe</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rowsHtml}</tbody>
+                        </table>
                     </div>
                 `;
             }).join('');
@@ -2094,7 +2191,7 @@
                 window.dailyPageChart.destroy();
             }
             
-            // Create new chart
+            // Create new chart with icon plugin
             window.dailyPageChart = new Chart(ctx, {
                 type: 'doughnut',
                 data: {
@@ -2132,7 +2229,8 @@
                             }
                         }
                     }
-                }
+                },
+                plugins: [iconPlugin]
             });
             
             console.log('✅ Daily chart updated successfully');
@@ -2148,9 +2246,26 @@
                 'Extra(s)': '#2563EB',
                 'Protein': '#DC2626',
                 'Milk': '#EAB308',
-                'Extra': '#2563EB'
+                'Extra': '#2563EB',
+                // Chart category mappings
+                'Whole Grain Rich': '#D97706',
+                'Meat/Alternate': '#DC2626',
+                'Extras': '#2563EB'
             };
             return colorMap[component] || '#6B7280';
+        }
+
+        // Show recipe modal for a food item
+        function showRecipeModal(foodItem) {
+            if (!foodItem || foodItem === 'N/A') {
+                return;
+            }
+            
+            console.log('🍽️ Showing recipe for:', foodItem);
+            
+            // For now, show a simple alert with recipe information
+            // In a full implementation, this would open a modal with detailed recipe
+            alert(`Recipe for: ${foodItem}\n\nThis feature will show detailed recipe information including:\n• Ingredients\n• Instructions\n• Nutritional facts\n• Component contributions\n\n(Recipe database integration coming soon)`);
         }
 
         function populateWeekPicker(picker) {
